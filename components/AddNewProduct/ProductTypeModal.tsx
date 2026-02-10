@@ -1,28 +1,35 @@
 import React from 'react';
 
 import ProductTypeFormCo, { ProductTypeForm } from './ProductTypeFormCo';
-import { UseMutationResult } from '@tanstack/react-query';
+
 
 interface ProductTypeModalProps {
   isOpen: boolean;
   onClose: () => void;
+  // Form data - comes from parent (editForm or createForm)
   productTypeForm: ProductTypeForm;
   setProductTypeForm: React.Dispatch<React.SetStateAction<ProductTypeForm>>;
+  // Mutation - comes from parent (updateMutation or createMutation)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mutation: any;
+  // Submit handler - comes from parent (handleUpdateSubmit or handleCreateSubmit)
   onSubmit: (e: React.FormEvent) => void;
+  // Modal title - "Edit Product Type" or "Create Product Type"
   title: string;
 }
 
-export default function ProductTypeModal({
+// This modal is just a WRAPPER - it doesn't own any data
+// All data comes from the parent page and gets passed to the form
+const ProductTypeModal = React.memo(function ProductTypeModal({
   isOpen,
   onClose,
-  productTypeForm,
-  setProductTypeForm,
-  mutation,
-  onSubmit,
-  title
+  productTypeForm,      // Data from parent
+  setProductTypeForm,   // Data from parent
+  mutation,             // Data from parent
+  onSubmit,             // Data from parent
+  title                 // Data from parent
 }: ProductTypeModalProps) {
+  // Don't render anything if modal is closed
   if (!isOpen) return null;
 
   return (
@@ -46,7 +53,7 @@ export default function ProductTypeModal({
           </button>
         </div>
 
-        {/* Form */}
+        {/* Form - just passing everything through to the form component */}
         <div className="p-6">
           <ProductTypeFormCo
             productTypeForm={productTypeForm}
@@ -58,4 +65,6 @@ export default function ProductTypeModal({
       </div>
     </div>
   );
-}
+});
+
+export default ProductTypeModal;

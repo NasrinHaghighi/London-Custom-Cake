@@ -2,20 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Admin from "@/lib/models/admin";
 import ActivityLog from "@/lib/models/activitylog";
+import { authenticateRequest } from "@/lib/auth";
 
 export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
 
   await dbConnect();
-  const { id } =await context.params;
+  const { id } = await context.params;
 
-  // Authentication: check auth_token cookie
-  const adminId = request.cookies.get('auth_token')?.value;
-  if (!adminId) {
-    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  }
-  const authAdmin = await Admin.findById(adminId);
-  if (!authAdmin) {
-    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  // Authenticate request
+  const auth = authenticateRequest(request);
+  if (!auth.authenticated) {
+    return auth.response;
   }
 
   // Set isActive to false (or clear passwordHash)
@@ -25,10 +22,7 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
   }
 
   // Log the deactivation in the activity log
-  let performedBy = adminId;
-  if (authAdmin && authAdmin.name) {
-    performedBy = authAdmin.name;
-  }
+  const performedBy = auth.user.email || "admin";
   let targetAdmin = id;
   if (updated && updated.name) {
     targetAdmin = updated.name;

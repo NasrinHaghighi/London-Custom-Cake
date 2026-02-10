@@ -1,5 +1,5 @@
 import React from 'react'
-import { UseMutationResult } from '@tanstack/react-query';
+
 
 export interface ProductTypeForm {
   name: string;

@@ -32,6 +32,7 @@ export default function Settings() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   // Mutation for sending admin invitation
   const mutation = useMutation({
     mutationFn: async (data: { name: string; email: string; phone: string }) => {
@@ -43,11 +44,17 @@ export default function Settings() {
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        throw new Error('Failed to send invitation');
+        const errorData = await response.json();
+        if (errorData.errors && Array.isArray(errorData.errors)) {
+          setValidationErrors(errorData.errors);
+          throw new Error('Validation failed');
+        }
+        throw new Error(errorData.message || 'Failed to send invitation');
       }
       return response.json();
     },
     onSuccess: (data) => {
+      setValidationErrors([]);
       if (data.message === 'Invitation resent') {
         toast.success('Invitation resent to pending admin.');
       } else if (data.message === 'Invitation sent') {
@@ -60,7 +67,10 @@ export default function Settings() {
       }
     },
     onError: (error) => {
-      toast.error(error.message || 'An error occurred');
+      if (error.message !== 'Validation failed') {
+        setValidationErrors([]);
+        toast.error(error.message || 'An error occurred');
+      }
     },
   });
 
@@ -149,6 +159,16 @@ export default function Settings() {
         >
           {mutation.isPending ? 'Sending...' : 'Send Invitation'}
         </button>
+        {validationErrors.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {validationErrors.map((error, index) => (
+              <p key={index} className="text-red-500 text-sm">{error}</p>
+            ))}
+          </div>
+        )}
+        {mutation.isError && validationErrors.length === 0 && (
+          <p className="text-red-500 text-sm mt-2">Error: {mutation.error.message}</p>
+        )}
       </form>
 
 <AdminList

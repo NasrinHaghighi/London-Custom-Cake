@@ -1,14 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Admin from "@/lib/models/admin";
-
-// admin auth check
-function isAdmin(request: Request): boolean {
-  const cookie = request.headers.get('cookie');
-  if (!cookie) return false;
-  // Simple check for auth_token presence (not secure, just for demo)
-  return cookie.includes('auth_token=');
-}
+import { authenticateRequest } from "@/lib/auth";
 
 // Simulated database queries (replace with real DB logic, e.g. Prisma)
 async function getTotalCakes() {
@@ -29,9 +22,11 @@ async function getTotalAdmins() {
   return Admin.countDocuments();
 }
 
-export async function GET(request: Request) {
-  if (!isAdmin(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function GET(request: NextRequest) {
+  // Authenticate request
+  const auth = authenticateRequest(request);
+  if (!auth.authenticated) {
+    return auth.response;
   }
 
   // Fetch all stats in parallel

@@ -1,88 +1,80 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import ProductType from "@/lib/models/productTypeSchema";
+import { authenticateRequest } from "@/lib/auth";
+import { updateProductTypeSchema } from "@/lib/validators/productType";
+import { z } from "zod";
+import logger from "@/lib/logger";
 
 // PUT: Update a product type
-
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Authentication: check auth_token cookie
-  const authToken = request.cookies.get('auth_token')?.value;
-  if (!authToken) {
-    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    // Authenticate request
+    const auth = authenticateRequest(request);
+    if (!auth.authenticated) {
+      return auth.response;
+    }
 
-  await dbConnect();
-  const { id } = await params;
+    await dbConnect();
+    const { id } = await params;
 
-  const {
-    name,
-    description,
-    isActive,
-    sortOrder,
-    pricingMethod,
-    unitPrice,
-    minQuantity,
-    maxQuantity,
-    pricePerKg,
-    minWeight,
-    maxWeight
-  } = await request.json();
+    const requestBody = await request.json();
 
-  // Validation: Ensure correct pricing fields based on pricingMethod
-  if (pricingMethod === 'perunit') {
-    if (!unitPrice) {
+    // Validate request body with Zod
+    const validatedData = updateProductTypeSchema.parse(requestBody);
+
+    // Update product type with validated data
+    const updatedType = await ProductType.findByIdAndUpdate(
+      id,
+      validatedData,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedType) {
       return NextResponse.json({
         success: false,
-        message: "Unit price is required for per-unit pricing"
-      }, { status: 400 });
+        message: "Product type not found"
+      }, { status: 404 });
     }
-  } else if (pricingMethod === 'perkg') {
-    if (!pricePerKg) {
+
+    logger.info({ userId: auth.user.userId, productTypeId: id }, 'Product type updated');
+
+    return NextResponse.json({ success: true, type: updatedType });
+  } catch (error) {
+    // Handle Zod validation errors
+    if (error instanceof z.ZodError) {
+      const errorMessages = error.issues.map((err: z.ZodIssue) => `${err.path.join('.')}: ${err.message}`);
+      logger.warn({ errors: errorMessages, productTypeId: (await params).id }, 'Product type update validation failed');
+
       return NextResponse.json({
         success: false,
-        message: "Price per kilogram is required for per-kg pricing"
+        message: 'Validation failed',
+        errors: errorMessages
       }, { status: 400 });
     }
+
+    // Handle other errors
+    logger.error({ error: error instanceof Error ? error.message : 'Unknown error' }, 'Product type update failed');
+
+    return NextResponse.json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to update product type'
+    }, { status: 500 });
   }
-
-  const updatedType = await ProductType.findByIdAndUpdate(
-    id,
-    {
-      name,
-      description,
-      isActive,
-      sortOrder,
-      pricingMethod,
-      unitPrice,
-      minQuantity,
-      maxQuantity,
-      pricePerKg,
-      minWeight,
-      maxWeight
-    },
-    { new: true, runValidators: true }
-  );
-
-  if (!updatedType) {
-    return NextResponse.json({ success: false, message: "Product type not found" }, { status: 404 });
-  }
-
-  return NextResponse.json({ success: true, type: updatedType });
 }
 
 // DELETE: Remove a product type
-
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Authentication: check auth_token cookie
-  const authToken = request.cookies.get('auth_token')?.value;
-  if (!authToken) {
-    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  // Authenticate request
+  const auth = authenticateRequest(request);
+  if (!auth.authenticated) {
+    return auth.response;
   }
 
   await dbConnect();

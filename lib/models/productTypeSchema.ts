@@ -28,4 +28,15 @@ const ProductTypeSchema = new Schema(
   { timestamps: true }
 );
 
+// Indexes for performance
+// 1. Name index - Fast search by product name
+ProductTypeSchema.index({ name: 1 });
+
+// 2. Compound index - Fast sorted list of active products (used in product list page)
+// Sorts by: active first, then by sortOrder, then by name
+ProductTypeSchema.index({ isActive: -1, sortOrder: 1, name: 1 });
+
+// 3. CreatedAt index - Fast queries for recently added products
+ProductTypeSchema.index({ createdAt: -1 });
+
 export default models.ProductType || model("ProductType", ProductTypeSchema);

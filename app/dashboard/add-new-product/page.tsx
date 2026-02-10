@@ -1,35 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { FaPlus } from "react-icons/fa";
 import { FaTrashAlt } from "react-icons/fa";
 import ProductTypeFormCo, { ProductTypeForm } from '@/components/AddNewProduct/ProductTypeFormCo';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ProductList from '@/components/AddNewProduct/ProductList';
 import ProductTypeModal from '@/components/AddNewProduct/ProductTypeModal';
-
-interface ProductType {
-  _id: string;
-  name: string;
-  description: string;
-  isActive: boolean;
-  sortOrder: number;
-    pricingMethod: 'perunit' | 'perkg';
-    unitPrice?: number;
-    minQuantity?: number;
-    maxQuantity?: number;
-    pricePerKg?: number;
-    minWeight?: number;
-    maxWeight?: number;
-}
-
-interface FlavorType {
-  _id: string;
-  name: string;
-  description: string;
-  isActive: boolean;
-  sortOrder: number;
-}
+import {
+  fetchProductTypes,
+  createProductType,
+  updateProductType,
+  deleteProductType as deleteProductTypeApi,
+  type ProductType
+} from '@/lib/api/productTypes';
+import {
+  fetchFlavorTypes,
+  createFlavorType,
+  deleteFlavorType as deleteFlavorTypeApi,
+  type FlavorType
+} from '@/lib/api/flavorTypes';
 
 export default function AddNewProductPage() {
   const queryClient = useQueryClient();
@@ -74,37 +64,24 @@ export default function AddNewProductPage() {
   // Fetch Product Types with React Query
   const { data: productTypesData, isLoading: productTypesLoading } = useQuery({
     queryKey: ['productTypes'],
-    queryFn: async () => {
-      const response = await fetch('/api/product-type');
-      const data = await response.json();
-      if (!data.success) throw new Error('Failed to fetch product types');
-      return data.types as ProductType[];
-    },
+    queryFn: fetchProductTypes,
+    staleTime: 5 * 60 * 1000, // 5 minutes - data stays fresh
+    gcTime: 10 * 60 * 1000, // 10 minutes - cache time
+    retry: 3, // Retry failed requests 3 times
   });
 
   // Fetch Flavor Types with React Query
   const { data: flavorTypesData, isLoading: flavorTypesLoading } = useQuery({
     queryKey: ['flavorTypes'],
-    queryFn: async () => {
-      const response = await fetch('/api/flavor-type');
-      const data = await response.json();
-      if (!data.success) throw new Error('Failed to fetch flavor types');
-      return data.flavors as FlavorType[];
-    },
+    queryFn: fetchFlavorTypes,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 3,
   });
 
   // Create Product Type Mutation
   const createProductTypeMutation = useMutation({
-    mutationFn: async (formData: typeof productTypeForm) => {
-      const response = await fetch('/api/product-type', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message || 'Failed to create product type');
-      return data;
-    },
+    mutationFn: createProductType,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productTypes'] });
       setProductTypeForm({
@@ -124,14 +101,7 @@ export default function AddNewProductPage() {
 
   // Delete Product Type Mutation
   const deleteProductTypeMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/product-type/${id}`, {
-        method: 'DELETE',
-      });
-      const data = await response.json();
-      if (!data.success) throw new Error('Failed to delete product type');
-      return data;
-    },
+    mutationFn: deleteProductTypeApi,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productTypes'] });
     },
@@ -141,14 +111,7 @@ export default function AddNewProductPage() {
   const updateProductTypeMutation = useMutation({
     mutationFn: async (formData: ProductTypeForm & { id: string }) => {
       const { id, ...updateData } = formData;
-      const response = await fetch(`/api/product-type/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData),
-      });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message || 'Failed to update product type');
-      return data;
+      return updateProductType(id, updateData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productTypes'] });
@@ -159,16 +122,7 @@ export default function AddNewProductPage() {
 
   // Create Flavor Type Mutation
   const createFlavorTypeMutation = useMutation({
-    mutationFn: async (formData: typeof flavorTypeForm) => {
-      const response = await fetch('/api/flavor-type', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message || 'Failed to create flavor type');
-      return data;
-    },
+    mutationFn: createFlavorType,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['flavorTypes'] });
       setFlavorTypeForm({ name: '', description: '', isActive: true });
@@ -177,14 +131,7 @@ export default function AddNewProductPage() {
 
   // Delete Flavor Type Mutation
   const deleteFlavorTypeMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/flavor-type/${id}`, {
-        method: 'DELETE',
-      });
-      const data = await response.json();
-      if (!data.success) throw new Error('Failed to delete flavor type');
-      return data;
-    },
+    mutationFn: deleteFlavorTypeApi,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['flavorTypes'] });
     },
@@ -201,19 +148,19 @@ export default function AddNewProductPage() {
     createFlavorTypeMutation.mutate(flavorTypeForm);
   };
 
-  const deleteProductType = (id: string) => {
+  const deleteProductType = useCallback((id: string) => {
     if (confirm('Are you sure you want to delete this product type?')) {
       deleteProductTypeMutation.mutate(id);
     }
-  };
+  }, [deleteProductTypeMutation]);
 
-  const deleteFlavorType = (id: string) => {
+  const deleteFlavorType = useCallback((id: string) => {
     if (confirm('Are you sure you want to delete this flavor type?')) {
       deleteFlavorTypeMutation.mutate(id);
     }
-  };
+  }, [deleteFlavorTypeMutation]);
 
-  const handleEditProductType = (productType: ProductType) => {
+  const handleEditProductType = useCallback((productType: ProductType) => {
     setEditingProductType(productType);
     setEditForm({
       name: productType.name,
@@ -228,17 +175,29 @@ export default function AddNewProductPage() {
       maxWeight: productType.maxWeight,
     });
     setIsEditModalOpen(true);
-  };
+  }, []);
 
-  const handleUpdateSubmit = (e: React.FormEvent) => {
+  const handleUpdateSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (editingProductType) {
       updateProductTypeMutation.mutate({ ...editForm, id: editingProductType._id });
     }
-  };
+  }, [editingProductType, editForm, updateProductTypeMutation]);
 
-  const productTypes = (productTypesData || []).sort((a, b) => a.name.localeCompare(b.name));
-  const flavorTypes = (flavorTypesData || []).sort((a, b) => a.name.localeCompare(b.name));
+  const handleCloseEditModal = useCallback(() => {
+    setIsEditModalOpen(false);
+  }, []);
+
+  // Memoize sorted arrays to prevent creating new references on every render
+  const productTypes = useMemo(
+    () => (productTypesData || []).sort((a, b) => a.name.localeCompare(b.name)),
+    [productTypesData]
+  );
+
+  const flavorTypes = useMemo(
+    () => (flavorTypesData || []).sort((a, b) => a.name.localeCompare(b.name)),
+    [flavorTypesData]
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 p-6">
@@ -270,7 +229,7 @@ export default function AddNewProductPage() {
               productTypes={productTypes}
               loading={productTypesLoading}
               deleteProductType={deleteProductType}
-              deleteMutation={deleteProductTypeMutation}
+              isDeleting={deleteProductTypeMutation.isPending}
               onEdit={handleEditProductType}
             />
 
@@ -279,7 +238,7 @@ export default function AddNewProductPage() {
           {/* Edit Modal */}
           <ProductTypeModal
             isOpen={isEditModalOpen}
-            onClose={() => setIsEditModalOpen(false)}
+            onClose={handleCloseEditModal}
             productTypeForm={editForm}
             setProductTypeForm={setEditForm}
             mutation={updateProductTypeMutation}

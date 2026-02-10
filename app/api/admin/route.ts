@@ -3,11 +3,20 @@ import crypto from "crypto";
 import nodemailer from "nodemailer";
 import dbConnect from "@/lib/mongodb";
 import Admin from "../../../lib/models/admin";
+import { authenticateRequest } from "@/lib/auth";
+import { createAdminSchema } from "@/lib/validators/admin";
+import { z } from "zod";
+import logger from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
-  await dbConnect();
+  try {
+    await dbConnect();
 
-  const { name, email, phone } = await request.json();
+    const requestBody = await request.json();
+
+    // Validate request body with Zod
+    const validatedData = createAdminSchema.parse(requestBody);
+    const { name, email, phone } = validatedData;
 
   const existing = await Admin.findOne({ $or: [{ email }, { phone }] });
   const ActivityLog = (await import("@/lib/models/activitylog")).default;
@@ -20,11 +29,10 @@ export async function POST(request: NextRequest) {
 
     // Log activity: invitation resent
     try {
-      const adminId = request.cookies.get('auth_token')?.value;
+      const auth = authenticateRequest(request);
       let performedBy = "system";
-      if (adminId) {
-        const admin = await Admin.findById(adminId);
-        if (admin) performedBy = admin.name;
+      if (auth.authenticated) {
+        performedBy = auth.user.email || "admin";
       }
       await ActivityLog.create({
         action: "admin_invitation_resent",
@@ -69,8 +77,14 @@ export async function POST(request: NextRequest) {
 
   // If admin exists and is active, block
   if (existing) {
+    const duplicateField = existing.email === email ? 'email' : 'phone';
+    logger.warn({ email, phone, duplicateField }, 'Attempt to add duplicate admin');
     return NextResponse.json(
-      { success: false, message: "Admin already exists" },
+      {
+        success: false,
+        message: "Validation failed",
+        errors: [duplicateField === 'email' ? 'This email is already registered' : 'This phone number is already registered']
+      },
       { status: 400 }
     );
   }
@@ -87,12 +101,10 @@ export async function POST(request: NextRequest) {
 
   // Log activity: admin added
   try {
-    // 1. Get admin ID from cookie
-    const adminId = request.cookies.get('auth_token')?.value;
+    const auth = authenticateRequest(request);
     let performedBy = "system";
-    if (adminId) {
-      const admin = await Admin.findById(adminId);
-      if (admin) performedBy = admin.name;
+    if (auth.authenticated) {
+      performedBy = auth.user.email || "admin";
     }
     await ActivityLog.create({
       action: "admin_added",
@@ -131,9 +143,31 @@ export async function POST(request: NextRequest) {
         <p>This link expires in 1 hour.</p>
       `,
     });
+
+    logger.info({ adminEmail: email }, 'Admin invitation sent');
     return NextResponse.json({ success: true, message: "Invitation sent" });
   } catch (err) {
-    console.error("Failed to send email:", err);
+    logger.error({ error: err instanceof Error ? err.message : 'Unknown error' }, 'Failed to send admin invitation email');
     return NextResponse.json({ success: false, message: "Failed to send invitation", error: String(err) }, { status: 500 });
+  }
+  } catch (error) {
+    // Handle Zod validation errors
+    if (error instanceof z.ZodError) {
+      const errorMessages = error.issues.map((err: z.ZodIssue) => `${err.path.join('.')}: ${err.message}`);
+      logger.warn({ errors: errorMessages }, 'Admin validation failed');
+
+      return NextResponse.json({
+        success: false,
+        message: 'Validation failed',
+        errors: errorMessages
+      }, { status: 400 });
+    }
+
+    // Handle other errors
+    logger.error({ error: error instanceof Error ? error.message : 'Unknown error' }, 'Admin creation failed');
+    return NextResponse.json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to create admin'
+    }, { status: 500 });
   }
 }

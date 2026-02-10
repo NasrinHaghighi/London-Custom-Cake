@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import FlavorType from "@/lib/models/flavorTypeSchema";
+import { authenticateRequest } from "@/lib/auth";
 
 // DELETE: Remove a flavor type
-
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  // Authentication: check auth_token cookie
-  const authToken = request.cookies.get('auth_token')?.value;
-  if (!authToken) {
-    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  // Authenticate request
+  const auth = authenticateRequest(request);
+  if (!auth.authenticated) {
+    return auth.response;
   }
 
   await dbConnect();
-  const { id } = params;
+  const { id } = await params;
 
   const deletedFlavor = await FlavorType.findByIdAndDelete(id);
 

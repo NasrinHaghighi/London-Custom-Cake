@@ -1,83 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import ProductType from "../../../lib/models/productTypeSchema";
+import { authenticateRequest } from "@/lib/auth";
+import { createProductTypeSchema } from "@/lib/validators/productType";
+import { z } from "zod";
+import logger from "@/lib/logger";
 
 // GET: List all product types
-
 export async function GET(request: NextRequest) {
-  // Authentication: check auth_token cookie
-  const authToken = request.cookies.get('auth_token')?.value;
-  if (!authToken) {
-    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  // Authenticate request
+  const auth = authenticateRequest(request);
+  if (!auth.authenticated) {
+    return auth.response;
   }
+
   await dbConnect();
   const types = await ProductType.find().sort({ sortOrder: 1, name: 1 });
   return NextResponse.json({ success: true, types });
 }
 
 // POST: Create a new product type
-
 export async function POST(request: NextRequest) {
-  // Authentication: check auth_token cookie
-  const authToken = request.cookies.get('auth_token')?.value;
-  if (!authToken) {
-    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    // Authenticate request
+    const auth = authenticateRequest(request);
+    if (!auth.authenticated) {
+      return auth.response;
+    }
 
-  await dbConnect();
+    await dbConnect();
 
-  const requestBody = await request.json();
+    const requestBody = await request.json();
 
-  // Debug: Log what we receive
-  console.log('Received POST data:', requestBody);
+    // Validate request body with Zod
+    const validatedData = createProductTypeSchema.parse(requestBody);
 
-  const {
-    name,
-    description,
-    isActive,
-    sortOrder,
-    pricingMethod,
-    unitPrice,
-    minQuantity,
-    maxQuantity,
-    pricePerKg,
-    minWeight,
-    maxWeight
-  } = requestBody;
+    // Create product type with validated data
+    const type = await ProductType.create(validatedData);
 
-  // Validation: Ensure correct pricing fields based on pricingMethod
-  if (pricingMethod === 'perunit') {
-    if (!unitPrice) {
+    logger.info({ userId: auth.user.userId, productTypeId: type._id }, 'Product type created');
+
+    return NextResponse.json({ success: true, type });
+  } catch (error) {
+    // Handle Zod validation errors
+    if (error instanceof z.ZodError) {
+      const errorMessages = error.issues.map((err: z.ZodIssue) => `${err.path.join('.')}: ${err.message}`);
+      logger.warn({ errors: errorMessages }, 'Product type validation failed');
+
       return NextResponse.json({
         success: false,
-        message: "Unit price is required for per-unit pricing"
+        message: 'Validation failed',
+        errors: errorMessages
       }, { status: 400 });
     }
-  } else if (pricingMethod === 'perkg') {
-    if (!pricePerKg) {
-      return NextResponse.json({
-        success: false,
-        message: "Price per kilogram is required for per-kg pricing"
-      }, { status: 400 });
-    }
+
+    // Handle other errors
+    logger.error({ error: error instanceof Error ? error.message : 'Unknown error' }, 'Product type creation failed');
+
+    return NextResponse.json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to create product type'
+    }, { status: 500 });
   }
-
-  const type = await ProductType.create({
-    name,
-    description,
-    isActive,
-    sortOrder,
-    pricingMethod,
-    unitPrice,
-    minQuantity,
-    maxQuantity,
-    pricePerKg,
-    minWeight,
-    maxWeight
-  });
-
-  // Debug: Log what was saved
-  console.log('Saved to DB:', type);
-
-  return NextResponse.json({ success: true, type });
 }

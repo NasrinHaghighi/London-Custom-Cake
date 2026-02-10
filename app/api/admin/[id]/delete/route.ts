@@ -2,19 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Admin from "@/lib/models/admin";
 import ActivityLog from "@/lib/models/activitylog";
+import { authenticateRequest } from "@/lib/auth";
 
 export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
   await dbConnect();
   const { id } = await context.params;
-console.log("Deleting admin with id:", id);
-  // Authentication: check auth_token cookie
-  const adminId = request.cookies.get('auth_token')?.value;
-  if (!adminId) {
-    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  }
-  const authAdmin = await Admin.findById(adminId);
-  if (!authAdmin) {
-    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  console.log("Deleting admin with id:", id);
+
+  // Authenticate request
+  const auth = authenticateRequest(request);
+  if (!auth.authenticated) {
+    return auth.response;
   }
 
 
@@ -25,10 +23,7 @@ console.log("Deleting admin with id:", id);
   }
 
   // Log the deletion in the activity log
-  let performedBy = adminId;
-  if (authAdmin && authAdmin.name) {
-    performedBy = authAdmin.name;
-  }
+  const performedBy = auth.user.email || "admin";
   let targetAdmin = id;
   if (deleted && deleted.name) {
     targetAdmin = deleted.name;
