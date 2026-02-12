@@ -18,7 +18,7 @@ export default function QuickActions({ actions }: QuickActionsProps) {
           <Link
             key={action.label}
             href={action.href}
-            className="inline-block px-5 py-2.5 bg-blue-600 text-white font-medium rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+            className="inline-block px-5 py-2.5 bg-gradient-to-r from-gray-800 to-gray-900 text-white font-medium rounded-md shadow-admin hover:from-gray-900 hover:to-black focus:outline-none focus:ring-2 focus:ring-gray-800 transition"
           >
             {action.label}
           </Link>

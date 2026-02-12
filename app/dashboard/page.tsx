@@ -61,15 +61,15 @@ async function fetchStats(): Promise<StatsType> {
 
 const quickActions = [
   {
-    label: "Add New Cake",
-    href: "/admin/cakes/new",
+    label: "Menu Management",
+    href: "/dashboard/menu-management",
   },
   {
     label: "View Orders",
     href: "/admin/orders",
   },
   {
-    label: "Settings",
+    label: "Admin Management",
     href: "/dashboard/settings",
   },
 ];
