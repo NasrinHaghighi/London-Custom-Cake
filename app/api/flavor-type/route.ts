@@ -25,7 +25,15 @@ export async function POST(request: NextRequest) {
   }
 
   await dbConnect();
-  const { name, description, isActive, sortOrder } = await request.json();
-  const flavor = await FlavorType.create({ name, description, isActive, sortOrder });
+  const { name, description, isActive, sortOrder, hasExtraPrice, extraPricePerUnit, extraPricePerKg } = await request.json();
+  const flavor = await FlavorType.create({
+    name,
+    description,
+    isActive,
+    sortOrder,
+    hasExtraPrice,
+    extraPricePerUnit,
+    extraPricePerKg
+  });
   return NextResponse.json({ success: true, flavor });
 }

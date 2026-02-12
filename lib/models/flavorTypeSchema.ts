@@ -5,6 +5,9 @@ export interface IFlavorType extends Document {
   description: string;
   isActive: boolean;
   sortOrder: number;
+  hasExtraPrice: boolean;
+  extraPricePerUnit?: number;
+  extraPricePerKg?: number;
 }
 
 const FlavorTypeSchema: Schema = new Schema({
@@ -24,6 +27,20 @@ const FlavorTypeSchema: Schema = new Schema({
   sortOrder: {
     type: Number,
     default: 0,
+  },
+  hasExtraPrice: {
+    type: Boolean,
+    default: false,
+  },
+  extraPricePerUnit: {
+    type: Number,
+    min: 0,
+    default: undefined,
+  },
+  extraPricePerKg: {
+    type: Number,
+    min: 0,
+    default: undefined,
   },
 }, {
   timestamps: true,

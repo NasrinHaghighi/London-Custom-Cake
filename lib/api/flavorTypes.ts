@@ -4,12 +4,18 @@ export interface FlavorType {
   description: string;
   isActive: boolean;
   sortOrder: number;
+  hasExtraPrice: boolean;
+  extraPricePerUnit?: number;
+  extraPricePerKg?: number;
 }
 
 export interface FlavorTypeInput {
   name: string;
   description: string;
   isActive: boolean;
+  hasExtraPrice: boolean;
+  extraPricePerUnit?: number;
+  extraPricePerKg?: number;
 }
 
 interface FlavorTypesResponse {
@@ -57,6 +63,27 @@ export async function createFlavorType(formData: FlavorTypeInput): Promise<Flavo
 
   if (!data.success || !data.flavor) {
     throw new Error(data.message || 'Failed to create flavor type');
+  }
+
+  return data.flavor;
+}
+
+// Update flavor type
+export async function updateFlavorType(id: string, formData: FlavorTypeInput): Promise<FlavorType> {
+  const response = await fetch(`/api/flavor-type/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(formData),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const data: FlavorTypeResponse = await response.json();
+
+  if (!data.success || !data.flavor) {
+    throw new Error(data.message || 'Failed to update flavor type');
   }
 
   return data.flavor;

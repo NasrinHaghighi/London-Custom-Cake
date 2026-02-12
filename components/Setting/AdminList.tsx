@@ -18,63 +18,77 @@ type AdminListProps = {
 };
 
 export default function AdminList({ admins = [], onDelete, onDeactivate, onInvite, isLoading, error }: AdminListProps) {
-  if (isLoading) return <div>Loading admins...</div>;
-  if (error) return <div className="text-red-500">Failed to load admins.</div>;
-  if (!admins.length) return <div className="text-gray-500">No admins found.</div>;
+  if (isLoading) return <div className="p-8 text-center text-gray-500">Loading admins...</div>;
+  if (error) return <div className="p-8 text-center text-red-500">Failed to load admins.</div>;
+  if (!admins.length) return <div className="p-8 text-center text-gray-500">No admins found.</div>;
 
   return (
-    <div className="mt-8">
-      <h3 className="text-xl mb-2">Admin List</h3>
-      <div className="grid grid-cols-5 bg-white border rounded shadow text-sm font-semibold">
-        <div className="py-2 px-4 border-b text-left">Name</div>
-        <div className="py-2 px-4 border-b text-left">Email</div>
-        <div className="py-2 px-4 border-b text-left">Phone</div>
-        <div className="py-2 px-4 border-b text-center">Status</div>
-        <div className="py-2 px-4 border-b text-center">Actions</div>
+    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <h3 className="text-lg font-semibold p-6 border-b">Admin List</h3>
+      <div className="divide-y">
+        {admins.map((admin) => (
+          <div key={admin._id} className="p-4 hover:bg-gray-50 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Name</p>
+                  <p className="text-sm font-medium text-gray-900">{admin.name}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Email</p>
+                  <p className="text-sm text-gray-700">{admin.email}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Phone</p>
+                  <p className="text-sm text-gray-700">{admin.phone}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 ml-4">
+                <div>
+                  {admin.passwordHash ? (
+                    <span className="px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700">
+                      Pending
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    className="bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
+                    onClick={() => onDelete && onDelete(admin._id)}
+                    aria-label="Delete admin"
+                    title="Delete admin"
+                  >
+                    Delete
+                  </button>
+                  {admin.passwordHash ? (
+                    <button
+                      className="bg-yellow-600 text-white px-3 py-1.5 rounded-md hover:bg-yellow-700 transition-colors text-sm font-medium"
+                      onClick={() => onDeactivate && onDeactivate(admin._id)}
+                      aria-label="Deactivate admin"
+                      title="Deactivate admin"
+                    >
+                      Deactivate
+                    </button>
+                  ) : (
+                    <button
+                      className="bg-admin-gradient text-white px-3 py-1.5 rounded-md hover:bg-admin-gradient-hover transition-all text-sm font-medium"
+                      onClick={() => onInvite && onInvite(admin)}
+                      aria-label="Send invitation"
+                      title="Send invitation"
+                    >
+                      Resend Invite
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
-      {admins.map((admin) => (
-        <div key={admin._id} className="grid grid-cols-5 bg-white border-b last:border-b-0 text-sm items-center">
-          <div className="py-2 px-4">{admin.name}</div>
-          <div className="py-2 px-4">{admin.email}</div>
-          <div className="py-2 px-4">{admin.phone}</div>
-          <div className="py-2 px-4 text-center">
-            {admin.passwordHash ? (
-              <span className="text-green-600 font-semibold">Active</span>
-            ) : (
-              <span className="text-yellow-600 font-semibold">Pending</span>
-            )}
-          </div>
-          <div className="py-2 px-4 flex gap-2 justify-center">
-            <button
-              className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-              onClick={() => onDelete && onDelete(admin._id)}
-              aria-label="Delete admin"
-              title="Delete admin"
-            >
-              Delete
-            </button>
-            {admin.passwordHash ? (
-              <button
-                className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600"
-                onClick={() => onDeactivate && onDeactivate(admin._id)}
-                aria-label="Deactivate admin"
-                title="Deactivate admin"
-              >
-                Deactivate
-              </button>
-            ) : (
-              <button
-                className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-                onClick={() => onInvite && onInvite(admin)}
-                aria-label="Send invitation"
-                title="Send invitation"
-              >
-                Send Invitation
-              </button>
-            )}
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
