@@ -45,6 +45,9 @@ export const createProductTypeSchema = z.object({
   maxWeight: z.number()
     .positive('Max weight must be positive')
     .optional(),
+
+  // Cake shapes (array of shape IDs)
+  shapeIds: z.array(z.string()).default([]),
 })
 .refine(
   (data) => {

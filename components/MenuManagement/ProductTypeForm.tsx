@@ -1,6 +1,7 @@
 'use client';
 
 import { ProductTypeForm as ProductTypeFormData } from './ProductTypesTab';
+import { CakeShape } from '@/lib/api/cakeShapes';
 import Checkbox from '../ui/Checkbox';
 
 interface ProductTypeFormProps {
@@ -8,9 +9,13 @@ interface ProductTypeFormProps {
   setForm: (form: ProductTypeFormData) => void;
   onSubmit: (e: React.FormEvent) => void;
   isPending: boolean;
+  cakeShapes?: CakeShape[];
 }
 
-export default function ProductTypeForm({ form, setForm, onSubmit, isPending }: ProductTypeFormProps) {
+export default function ProductTypeForm({ form, setForm, onSubmit, isPending, cakeShapes = [] }: ProductTypeFormProps) {
+  const hasShapes = cakeShapes && cakeShapes.length > 0;
+  const isShapeCheckboxDisabled = !hasShapes;
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <h3 className="text-lg font-semibold mb-4">Add New Product Type</h3>
@@ -118,6 +123,55 @@ export default function ProductTypeForm({ form, setForm, onSubmit, isPending }: 
             rows={2}
           />
         </div>
+
+        <Checkbox
+          label="Available in Multiple Cake Shapes"
+          checked={form.hasMultipleShapes || false}
+          onChange={(checked) => {
+            // Only allow checking if shapes exist
+            if (checked && !hasShapes) {
+              return;
+            }
+            setForm({ ...form, hasMultipleShapes: checked, shapeIds: checked ? [] : [] });
+          }}
+          disabled={isShapeCheckboxDisabled}
+        />
+
+        {/* Warning message if no shapes exist */}
+        {isShapeCheckboxDisabled && (
+          <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+            <p className="text-sm text-blue-800">
+              <span className="font-semibold">📢 No cake shapes available:</span> Please add at least one cake shape first in the Cake Shapes tab before you can assign shapes to products.
+            </p>
+          </div>
+        )}
+
+        {/* Cake Shapes Selection - Only show if checkbox is checked */}
+        {form.hasMultipleShapes && cakeShapes && cakeShapes.length > 0 && (
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-3">Select Available Shapes</label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {cakeShapes.map((shape) => (
+                <label key={shape._id} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded-lg border border-gray-200">
+                  <input
+                    type="checkbox"
+                    checked={(form.shapeIds || []).includes(shape._id)}
+                    onChange={(e) => {
+                      const shapeIds = form.shapeIds || [];
+                      if (e.target.checked) {
+                        setForm({ ...form, shapeIds: [...shapeIds, shape._id] });
+                      } else {
+                        setForm({ ...form, shapeIds: shapeIds.filter((id) => id !== shape._id) });
+                      }
+                    }}
+                    className="w-4 h-4 rounded"
+                  />
+                  <span className="text-sm font-medium text-gray-700">{shape.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         <Checkbox
           label="Active"

@@ -31,7 +31,26 @@ export function useCreateProductType(onSuccessCallback?: () => void) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: createProductType,
+    mutationFn: (formData: {
+      name: string;
+      description: string;
+      isActive: boolean;
+      pricingMethod: 'perunit' | 'perkg';
+      unitPrice?: number;
+      minQuantity?: number;
+      maxQuantity?: number;
+      pricePerKg?: number;
+      minWeight?: number;
+      maxWeight?: number;
+      shapeIds?: string[];
+    }) => {
+      // Ensure shapeIds is always sent, even if empty
+      const { shapeIds, ...rest } = formData;
+      const payload = { ...rest, shapeIds: shapeIds || [] };
+      console.log('🔵 CREATE MUTATION - Form Data:', formData);
+      console.log('🔵 CREATE MUTATION - Payload being sent:', payload);
+      return createProductType(payload);
+    },
     onSuccess: () => {
       toast.success('Product type created successfully');
       queryClient.invalidateQueries({ queryKey: ['productTypes'] });
@@ -62,9 +81,11 @@ export function useUpdateProductType(onSuccessCallback?: () => void) {
       pricePerKg?: number;
       minWeight?: number;
       maxWeight?: number;
+      shapeIds?: string[];
     }) => {
-      const { id, ...updateData } = formData;
-      return updateProductType(id, updateData);
+      const { id, shapeIds, ...rest } = formData;
+      // Ensure shapeIds is always sent, even if empty
+      return updateProductType(id, { ...rest, shapeIds: shapeIds || [] });
     },
     onSuccess: () => {
       toast.success('Product type updated successfully');

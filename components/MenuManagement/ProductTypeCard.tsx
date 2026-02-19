@@ -2,15 +2,22 @@
 
 import { FaEdit, FaTrashAlt } from 'react-icons/fa';
 import { ProductType } from '@/lib/api/productTypes';
+import { CakeShape } from '@/lib/api/cakeShapes';
 
 interface ProductTypeCardProps {
   productType: ProductType;
   onEdit: (productType: ProductType) => void;
   onDelete: (id: string) => void;
   isDeleting: boolean;
+  cakeShapes?: CakeShape[];
 }
 
-export default function ProductTypeCard({ productType, onEdit, onDelete, isDeleting }: ProductTypeCardProps) {
+export default function ProductTypeCard({ productType, onEdit, onDelete, isDeleting, cakeShapes = [] }: ProductTypeCardProps) {
+  // Get shape names from IDs
+  const selectedShapes = (productType.shapeIds || [])
+    .map((id) => cakeShapes.find((shape) => shape._id === id))
+    .filter(Boolean) as CakeShape[];
+
   return (
     <div className="border-2 border-gray-200 rounded-lg p-4 hover:border-gray-400 transition-all">
       <div className="flex justify-between items-start mb-2">
@@ -68,7 +75,24 @@ export default function ProductTypeCard({ productType, onEdit, onDelete, isDelet
         )}
       </div>
 
-      <div className="mt-2">
+      {/* Display Cake Shapes */}
+      {selectedShapes.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          <p className="text-xs font-semibold text-gray-700 mb-2">Available Shapes:</p>
+          <div className="flex flex-wrap gap-2">
+            {selectedShapes.map((shape) => (
+              <span
+                key={shape._id}
+                className="inline-block bg-blue-100 text-blue-800 text-xs px-2.5 py-1 rounded-full font-medium"
+              >
+                🎂 {shape.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-3">
         <span
           className={`text-xs px-2 py-1 rounded-full ${
             productType.isActive
