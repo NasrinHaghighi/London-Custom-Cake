@@ -5,6 +5,7 @@ import { authenticateRequest } from "@/lib/auth";
 import { createProductTypeSchema } from "@/lib/validators/productType";
 import { z } from "zod";
 import logger from "@/lib/logger";
+import mongoose from "mongoose";
 
 // GET: List all product types
 export async function GET(request: NextRequest) {
@@ -31,12 +32,22 @@ export async function POST(request: NextRequest) {
     await dbConnect();
 
     const requestBody = await request.json();
+    console.log('🔴 API ROUTE - Received request body:', requestBody);
 
     // Validate request body with Zod
     const validatedData = createProductTypeSchema.parse(requestBody);
+    console.log('🔴 API ROUTE - After Zod validation:', validatedData);
+
+    // Convert shapeIds strings to ObjectIds
+    const dataToSave = {
+      ...validatedData,
+      shapeIds: validatedData.shapeIds?.map((id: string) => new mongoose.Types.ObjectId(id)) || []
+    };
+    console.log('🔴 API ROUTE - Data to save (with ObjectIds):', dataToSave);
 
     // Create product type with validated data
-    const type = await ProductType.create(validatedData);
+    const type = await ProductType.create(dataToSave);
+    console.log('🔴 API ROUTE - Created in DB:', type.toObject());
 
     logger.info({ userId: auth.user.userId, productTypeId: type._id }, 'Product type created');
 

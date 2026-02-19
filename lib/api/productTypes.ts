@@ -11,6 +11,7 @@ export interface ProductType {
   pricePerKg?: number;
   minWeight?: number;
   maxWeight?: number;
+  shapeIds?: string[];
 }
 
 export interface ProductTypeInput {
@@ -24,6 +25,7 @@ export interface ProductTypeInput {
   pricePerKg?: number;
   minWeight?: number;
   maxWeight?: number;
+  shapeIds?: string[];
 }
 
 interface ProductTypesResponse {
@@ -57,6 +59,7 @@ export async function fetchProductTypes(): Promise<ProductType[]> {
 
 // Create new product type
 export async function createProductType(formData: ProductTypeInput): Promise<ProductType> {
+  console.log('🟢 API CLIENT - Sending to server:', formData);
   const response = await fetch('/api/product-type', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -72,6 +75,7 @@ export async function createProductType(formData: ProductTypeInput): Promise<Pro
   }
 
   const data: ProductTypeResponse = await response.json();
+  console.log('🟢 API CLIENT - Server response:', data);
 
   if (!data.success || !data.type) {
     throw new Error(data.message || 'Failed to create product type');

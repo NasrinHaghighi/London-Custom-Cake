@@ -24,6 +24,14 @@ const ProductTypeSchema = new Schema(
     pricePerKg: { type: Number },
     minWeight: { type: Number },
     maxWeight: { type: Number },
+
+    // Cake shapes (one-to-many: a product can have multiple shapes)
+    shapeIds: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'CakeShape',
+      },
+    ],
   },
   { timestamps: true }
 );
@@ -38,5 +46,8 @@ ProductTypeSchema.index({ isActive: -1, sortOrder: 1, name: 1 });
 
 // 3. CreatedAt index - Fast queries for recently added products
 ProductTypeSchema.index({ createdAt: -1 });
+
+// 4. ShapeIds index - Fast queries for products with specific shapes
+ProductTypeSchema.index({ shapeIds: 1 });
 
 export default models.ProductType || model("ProductType", ProductTypeSchema);

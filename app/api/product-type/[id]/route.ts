@@ -5,6 +5,7 @@ import { authenticateRequest } from "@/lib/auth";
 import { updateProductTypeSchema } from "@/lib/validators/productType";
 import { z } from "zod";
 import logger from "@/lib/logger";
+import mongoose from "mongoose";
 
 // PUT: Update a product type
 export async function PUT(
@@ -26,10 +27,16 @@ export async function PUT(
     // Validate request body with Zod
     const validatedData = updateProductTypeSchema.parse(requestBody);
 
+    // Convert shapeIds strings to ObjectIds
+    const dataToUpdate = {
+      ...validatedData,
+      shapeIds: validatedData.shapeIds?.map((id: string) => new mongoose.Types.ObjectId(id)) || []
+    };
+
     // Update product type with validated data
     const updatedType = await ProductType.findByIdAndUpdate(
       id,
-      validatedData,
+      dataToUpdate,
       { new: true, runValidators: true }
     );
 

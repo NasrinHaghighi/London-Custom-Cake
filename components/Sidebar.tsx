@@ -69,6 +69,27 @@ export default function Sidebar({ user }: SidebarProps) {
           </ul>
         </div>
 
+        {/* Orders Section */}
+        <div className="mb-6">
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">
+            Orders
+          </h3>
+          <ul className="space-y-1">
+            <li>
+              <Link
+                href="/dashboard/orders"
+                className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                  isActive('/dashboard/orders')
+                    ? 'bg-gray-800 text-white'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                <span className="font-medium">Make an Order</span>
+              </Link>
+            </li>
+          </ul>
+        </div>
+
         {/* Menu Section */}
         <div className="mb-6">
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">

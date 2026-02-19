@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { type ProductType } from '@/lib/api/productTypes';
 import { useProductTypes, useCreateProductType, useUpdateProductType, useDeleteProductType } from '@/hooks/useProductTypes';
+import { useCakeShapes } from '@/hooks/useCakeShapes';
 import ProductTypeForm from './ProductTypeForm';
 import ProductTypeCard from './ProductTypeCard';
 import ProductTypeEditModal from './ProductTypeEditModal';
@@ -19,6 +20,8 @@ export interface ProductTypeForm {
   pricePerKg?: number;
   minWeight?: number;
   maxWeight?: number;
+  hasMultipleShapes?: boolean;
+  shapeIds?: string[];
 }
 
 export default function ProductTypesTab() {
@@ -34,6 +37,8 @@ export default function ProductTypesTab() {
     pricePerKg: undefined,
     minWeight: undefined,
     maxWeight: undefined,
+    hasMultipleShapes: false,
+    shapeIds: [],
   });
 
   // Edit Modal State
@@ -50,10 +55,13 @@ export default function ProductTypesTab() {
     pricePerKg: undefined,
     minWeight: undefined,
     maxWeight: undefined,
+    hasMultipleShapes: false,
+    shapeIds: [],
   });
 
   // Custom Hooks
   const { data: productTypesData, isLoading: productTypesLoading, error } = useProductTypes();
+  const { data: cakeShapesData } = useCakeShapes();
 
   const resetForm = useCallback(() => {
     setProductTypeForm({
@@ -67,6 +75,8 @@ export default function ProductTypesTab() {
       pricePerKg: undefined,
       minWeight: undefined,
       maxWeight: undefined,
+      hasMultipleShapes: false,
+      shapeIds: [],
     });
   }, []);
 
@@ -104,6 +114,8 @@ export default function ProductTypesTab() {
       pricePerKg: productType.pricePerKg,
       minWeight: productType.minWeight,
       maxWeight: productType.maxWeight,
+      hasMultipleShapes: (productType.shapeIds && productType.shapeIds.length > 0) ? true : false,
+      shapeIds: productType.shapeIds || [],
     });
     setIsEditModalOpen(true);
   }, []);
@@ -136,6 +148,7 @@ export default function ProductTypesTab() {
         setForm={setProductTypeForm}
         onSubmit={handleProductTypeSubmit}
         isPending={createProductTypeMutation.isPending}
+        cakeShapes={cakeShapesData || []}
       />
 
       {/* Product Types List */}
@@ -154,6 +167,7 @@ export default function ProductTypesTab() {
                 onEdit={handleEditProductType}
                 onDelete={deleteProductType}
                 isDeleting={deleteProductTypeMutation.isPending}
+                cakeShapes={cakeShapesData || []}
               />
             ))}
           </div>
@@ -168,6 +182,7 @@ export default function ProductTypesTab() {
         setForm={setEditForm}
         onSubmit={handleUpdateSubmit}
         isPending={updateProductTypeMutation.isPending}
+        cakeShapes={cakeShapesData || []}
       />
     </div>
   );

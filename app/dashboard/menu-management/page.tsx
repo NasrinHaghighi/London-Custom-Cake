@@ -4,11 +4,13 @@ import { useState } from 'react';
 import ProductTypesTab from '../../../components/MenuManagement/ProductTypesTab';
 import FlavorsTab from '../../../components/MenuManagement/FlavorsTab';
 import CombinationsTab from '../../../components/MenuManagement/CombinationsTab';
+import CakeShapesTab from '../../../components/MenuManagement/CakeShapesTab';
 import { useQuery } from '@tanstack/react-query';
 import { fetchProductTypes } from '@/lib/api/productTypes';
 import { fetchFlavorTypes } from '@/lib/api/flavorTypes';
+import { fetchCakeShapes } from '@/lib/api/cakeShapes';
 
-type TabType = 'products' | 'flavors' | 'combinations';
+type TabType = 'products' | 'flavors' | 'combinations' | 'shapes';
 
 export default function MenuManagementPage() {
   const [activeTab, setActiveTab] = useState<TabType>('products');
@@ -40,12 +42,20 @@ export default function MenuManagementPage() {
     gcTime: 10 * 60 * 1000,
   });
 
+  const { data: cakeShapesData } = useQuery({
+    queryKey: ['cakeShapes'],
+    queryFn: fetchCakeShapes,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+
   const productCount = productTypesData?.length || 0;
   const flavorCount = flavorTypesData?.length || 0;
   const comboCount = combinationsData?.length || 0;
+  const shapeCount = cakeShapesData?.length || 0;
 
   return (
-    <div className="p-6">
+    <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Menu Management</h1>
@@ -120,6 +130,28 @@ export default function MenuManagementPage() {
               </span>
             )}
           </button>
+
+          <button
+            onClick={() => setActiveTab('shapes')}
+            className={`
+              px-6 py-3 rounded-md font-semibold text-base transition-all duration-200
+              ${activeTab === 'shapes'
+                ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-admin-lg hover:from-gray-900 hover:to-black'
+                : 'bg-white text-gray-700 hover:text-gray-900 hover:shadow-md border border-gray-200'
+              }
+            `}
+          >
+            Cake Shapes
+            {shapeCount > 0 && (
+              <span className={`ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium ${
+                activeTab === 'shapes'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-gray-100 text-gray-700'
+              }`} suppressHydrationWarning>
+                {shapeCount}
+              </span>
+            )}
+          </button>
         </nav>
       </div>
 
@@ -128,6 +160,7 @@ export default function MenuManagementPage() {
         {activeTab === 'products' && <ProductTypesTab />}
         {activeTab === 'flavors' && <FlavorsTab />}
         {activeTab === 'combinations' && <CombinationsTab />}
+        {activeTab === 'shapes' && <CakeShapesTab />}
       </div>
     </div>
   );
