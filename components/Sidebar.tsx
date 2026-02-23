@@ -90,6 +90,27 @@ export default function Sidebar({ user }: SidebarProps) {
           </ul>
         </div>
 
+        {/* Customers Section */}
+        <div className="mb-6">
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">
+            Customers
+          </h3>
+          <ul className="space-y-1">
+            <li>
+              <Link
+                href="/dashboard/customers"
+                className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                  isActive('/dashboard/customers')
+                    ? 'bg-gray-800 text-white'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                <span className="font-medium">Customer List</span>
+              </Link>
+            </li>
+          </ul>
+        </div>
+
         {/* Menu Section */}
         <div className="mb-6">
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">
