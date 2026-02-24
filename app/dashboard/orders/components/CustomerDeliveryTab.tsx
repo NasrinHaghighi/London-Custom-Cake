@@ -14,7 +14,7 @@ export default function CustomerDeliveryTab({ form, setForm, addresses, lookupSt
   const hasAddresses = addresses.length > 0;
 
   useEffect(() => {
-    if (!hasAddresses && form.addressMode === 'existing') {
+    if (form.deliveryMethod === 'delivery' && !hasAddresses && form.addressMode === 'existing') {
       setForm({ ...form, addressMode: 'new', selectedAddressId: '' });
     }
   }, [hasAddresses, form, setForm]);
@@ -22,8 +22,36 @@ export default function CustomerDeliveryTab({ form, setForm, addresses, lookupSt
   return (
     <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-gray-800">Customer & Delivery Information</h2>
+        <h2 className="text-xl font-semibold text-gray-800">Customer & Information</h2>
         <p className="text-gray-600 text-sm mt-1">Search by phone to autofill customer details</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">Order Info</label>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => setForm({ ...form, deliveryMethod: 'delivery' })}
+            className={`px-4 py-2 rounded-md text-sm font-medium border ${
+              form.deliveryMethod === 'delivery'
+                ? 'bg-gray-800 text-white border-gray-800'
+                : 'bg-white text-gray-700 border-gray-300'
+            }`}
+          >
+            Delivery
+          </button>
+          <button
+            type="button"
+            onClick={() => setForm({ ...form, deliveryMethod: 'pickup', selectedAddressId: '' })}
+            className={`px-4 py-2 rounded-md text-sm font-medium border ${
+              form.deliveryMethod === 'pickup'
+                ? 'bg-gray-800 text-white border-gray-800'
+                : 'bg-white text-gray-700 border-gray-300'
+            }`}
+          >
+            Pickup
+          </button>
+        </div>
       </div>
 
       {/* Phone lookup */}
@@ -87,6 +115,7 @@ export default function CustomerDeliveryTab({ form, setForm, addresses, lookupSt
       </div>
 
       {/* Address */}
+      {form.deliveryMethod === 'delivery' && (
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Address Selection</label>
@@ -214,6 +243,13 @@ export default function CustomerDeliveryTab({ form, setForm, addresses, lookupSt
           </div>
         )}
       </div>
+      )}
+
+      {form.deliveryMethod === 'pickup' && (
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+          Pickup selected. Delivery address is not required for this order.
+        </div>
+      )}
 
       {/* Notes */}
       <div>

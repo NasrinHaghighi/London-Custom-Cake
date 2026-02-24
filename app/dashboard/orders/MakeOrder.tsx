@@ -5,8 +5,9 @@ import { useProductTypes } from '@/hooks/useProductTypes';
 import { useCakeShapes } from '@/hooks/useCakeShapes';
 import OrderTabsNav from './components/OrderTabsNav';
 import CustomerDeliveryTab from './components/CustomerDeliveryTab';
-import OrderItemsTab from './components/OrderItemsTab';
-import { Address, CustomerForm, CustomerLookupResult, OrderItem } from './types';
+import OrderInfoTab from './components/OrderInfoTab';
+import { Address, CustomerForm, CustomerLookupResult, DeliveryMethod, OrderItem } from './types';
+import PaymentTab from './components/PaymentTab';
 
 const initialCustomerForm: CustomerForm = {
   phone: '',
@@ -14,6 +15,7 @@ const initialCustomerForm: CustomerForm = {
   lastName: '',
   email: '',
   notes: '',
+  deliveryMethod: 'delivery',
   addressMode: 'existing',
   selectedAddressId: '',
   newAddress: {
@@ -40,12 +42,17 @@ export default function MakeOrder() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [isOrderCreated, setIsOrderCreated] = useState(false);
 
   const isLoading = productsLoading || shapesLoading;
 
   const isCustomerTabValid = useMemo(() => {
     if (!customerForm.phone || !customerForm.firstName || !customerForm.lastName || !customerForm.email) {
       return false;
+    }
+
+    if (customerForm.deliveryMethod === 'pickup') {
+      return true;
     }
 
     if (customerForm.addressMode === 'existing') {
@@ -62,7 +69,33 @@ export default function MakeOrder() {
   const canAccessTab = (tab: 'customer' | 'order' | 'payment') => {
     if (tab === 'customer') return true;
     if (tab === 'order') return isCustomerTabValid;
-    return false;
+    return isOrderCreated;
+  };
+
+  const handleOrderCreated = () => {
+    setIsOrderCreated(true);
+    setActiveTab('payment');
+  };
+
+  const handleDeliveryMethodChange = (method: DeliveryMethod) => {
+    setCustomerForm((prev) => ({
+      ...prev,
+      deliveryMethod: method,
+      selectedAddressId: method === 'pickup' ? '' : prev.selectedAddressId,
+    }));
+
+    if (method === 'pickup') {
+      setSelectedDeliveryAddressId('');
+    }
+  };
+
+  const handleDeliveryAddressChange = (addressId: string) => {
+    setSelectedDeliveryAddressId(addressId);
+    setCustomerForm((prev) => ({
+      ...prev,
+      selectedAddressId: addressId,
+      deliveryMethod: addressId ? 'delivery' : prev.deliveryMethod,
+    }));
   };
 
   const buildNewCustomerPayload = () => {
@@ -75,7 +108,7 @@ export default function MakeOrder() {
       addresses: [] as Address[],
     };
 
-    if (customerForm.addressMode === 'new') {
+    if (customerForm.deliveryMethod === 'delivery' && customerForm.addressMode === 'new') {
       base.addresses = [{
         id: '',
         label: 'Primary',
@@ -93,6 +126,12 @@ export default function MakeOrder() {
 
   const handleNextFromCustomer = async () => {
     if (!isCustomerTabValid || isCreatingCustomer || isSavingAddress) return;
+
+    if (customerForm.deliveryMethod === 'pickup') {
+      setSelectedDeliveryAddressId('');
+      setActiveTab('order');
+      return;
+    }
 
     // If customer found and adding new address
     if (lookupStatus === 'found' && customerId && customerForm.addressMode === 'new' && customerForm.newAddress.line1) {
@@ -161,7 +200,7 @@ export default function MakeOrder() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        await response.json();
         return;
       }
 
@@ -190,6 +229,23 @@ export default function MakeOrder() {
       setIsSavingAddress(false);
     }
   };
+
+  // Clear stale customer/autofill data when phone changes
+  useEffect(() => {
+    setCustomerId('');
+    setCustomerAddresses([]);
+    setSelectedDeliveryAddressId('');
+    setLookupStatus('idle');
+
+    setCustomerForm((prev) => ({
+      ...prev,
+      firstName: '',
+      lastName: '',
+      email: '',
+      addressMode: 'existing',
+      selectedAddressId: '',
+    }));
+  }, [customerForm.phone]);
 
   // Customer lookup by phone (debounced)
   useEffect(() => {
@@ -227,7 +283,7 @@ export default function MakeOrder() {
 
         setCustomerAddresses(customer.addresses || []);
         setLookupStatus('found');
-      } catch (error) {
+      } catch {
         setLookupStatus('error');
       }
     }, 500);
@@ -236,7 +292,7 @@ export default function MakeOrder() {
   }, [customerForm.phone]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 ">
       <div>
         <h1 className="text-3xl font-bold text-gray-800">Create New Order</h1>
         <p className="text-gray-600 mt-2">Follow the steps below to place a new order</p>
@@ -268,7 +324,7 @@ export default function MakeOrder() {
               type="button"
               onClick={handleNextFromCustomer}
               disabled={!isCustomerTabValid || isCreatingCustomer || isSavingAddress}
-              className="bg-gradient-to-r from-gray-800 to-gray-900 text-white py-2 px-6 rounded-md hover:from-gray-900 hover:to-black disabled:opacity-50 transition-all font-medium shadow-sm"
+              className="bg-linear-to-r from-gray-800 to-gray-900 text-white py-2 px-6 rounded-md hover:from-gray-900 hover:to-black disabled:opacity-50 transition-all font-medium shadow-sm"
             >
               {isCreatingCustomer ? 'Saving...' : isSavingAddress ? 'Saving Address...' : 'Next'}
             </button>
@@ -276,16 +332,27 @@ export default function MakeOrder() {
         </div>
       )}
 
-      {!isLoading && activeTab === 'order' && (
-        <OrderItemsTab
+   {!isLoading && activeTab === 'order' && (
+        <OrderInfoTab
           items={orderItems}
           setItems={setOrderItems}
           productTypes={productTypes}
           cakeShapes={cakeShapes}
           customerId={customerId}
           deliveryAddressId={selectedDeliveryAddressId}
+          deliveryMethod={customerForm.deliveryMethod}
+          onDeliveryMethodChange={handleDeliveryMethodChange}
+          onDeliveryAddressChange={handleDeliveryAddressChange}
+          onOrderCreated={handleOrderCreated}
         />
       )}
+
+      {!isLoading && activeTab === 'payment' && (
+        <PaymentTab />
+      )}
+
+
+
     </div>
   );
 }

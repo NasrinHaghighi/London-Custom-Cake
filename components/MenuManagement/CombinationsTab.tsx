@@ -27,10 +27,12 @@ interface FlavorType {
   isActive?: boolean;
 }
 
+type RefIdValue = string | { _id?: string | { toString: () => string } } | { toString: () => string };
+
 interface ProductFlavorCombination {
   _id: string;
-  productTypeId: ProductType;
-  flavorId: FlavorType;
+  productTypeId: RefIdValue;
+  flavorId: RefIdValue;
   isAvailable: boolean;
   notes?: string;
   createdAt: string;
@@ -51,6 +53,22 @@ interface FlavorsResponse {
   success: boolean;
   flavors: FlavorType[];
 }
+
+const extractRefId = (value: RefIdValue | null | undefined): string => {
+  if (!value) {
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if ('_id' in value && value._id) {
+    return typeof value._id === 'string' ? value._id : value._id.toString();
+  }
+
+  return value.toString();
+};
 
 // Fetch functions
 const fetchCombinations = async (): Promise<CombinationsResponse> => {
@@ -168,7 +186,7 @@ export default function CombinationsTab() {
   // Helper function to check if a combination exists
   const getCombination = (productId: string, flavorId: string) => {
     return combinations.find(
-      c => c.productTypeId._id === productId && c.flavorId._id === flavorId
+      (c) => extractRefId(c.productTypeId) === productId && extractRefId(c.flavorId) === flavorId
     );
   };
 
@@ -233,7 +251,7 @@ export default function CombinationsTab() {
                   Product Type
                 </th>
                 {flavorTypes.map((flavor) => (
-                  <th key={flavor._id} className="px-4 py-3 text-center border-b-2 border-gray-300 min-w-[140px]">
+                  <th key={flavor._id} className="px-4 py-3 text-center border-b-2 border-gray-300 min-w-35">
                     <div className={`font-semibold ${
                       flavor.isActive === false ? 'text-gray-400 line-through' : 'text-gray-700'
                     }`}>

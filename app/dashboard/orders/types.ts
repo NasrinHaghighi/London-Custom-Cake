@@ -26,6 +26,7 @@ export interface CustomerForm {
   lastName: string;
   email: string;
   notes: string;
+  deliveryMethod: DeliveryMethod;
   addressMode: 'existing' | 'new';
   selectedAddressId: string;
   newAddress: {
@@ -41,9 +42,12 @@ export interface CustomerForm {
 export interface OrderItem {
   id: string;
   productTypeId: string;
-  quantity: number;
-  shapeId: string;
+  flavorId: string;
+  cakeShapeId?: string;
+  quantity?: number;
+  weight?: number;
   specialInstructions: string;
+  lineTotal?: number;
 }
 
 export interface PaymentForm {

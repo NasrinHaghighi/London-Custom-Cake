@@ -166,6 +166,7 @@ export async function POST(request: NextRequest) {
       success: true,
       created: true,
       customer: {
+        _id: created._id?.toString() || '',
         firstName: created.firstName,
         lastName: created.lastName,
         email: created.email,
