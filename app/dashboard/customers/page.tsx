@@ -6,6 +6,25 @@ import { useCustomers } from '@/hooks/useCustomers';
 import type { CustomerListItem } from '@/lib/api/customers';
 import { List, type RowComponentProps } from 'react-window';
 
+const createdDateFormatter = new Intl.DateTimeFormat('en-GB', {
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+function formatCreatedDate(value?: string): string {
+  if (!value) {
+    return '-';
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return '-';
+  }
+
+  return createdDateFormatter.format(parsed);
+}
+
 export default function CustomersPage() {
   const { data: customers = [], isLoading, error } = useCustomers();
   const [search, setSearch] = useState('');
@@ -30,9 +49,7 @@ export default function CustomersPage() {
   const Row = ({ index, style, items }: RowComponentProps<RowProps>) => {
     const customer = items[index];
     if (!customer) return null;
-    const createdLabel = customer.createdAt
-      ? new Date(customer.createdAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'short' })
-      : '-';
+    const createdLabel = formatCreatedDate(customer.createdAt);
 
     return (
       <div

@@ -32,13 +32,23 @@ interface ProductFlavorResponse {
   combinations: ProductFlavorCombination[];
 }
 
+interface ExistingOrderItem {
+  productTypeName?: string;
+  flavorName?: string;
+  cakeShapeName?: string;
+  quantity?: number;
+  weight?: number;
+}
+
 interface ExistingOrder {
   _id: string;
   orderNumber: string;
+  customerName?: string;
   deliveryMethod: DeliveryMethod;
   status: string;
   totalAmount: number;
   orderDateTime: string;
+  items?: ExistingOrderItem[];
 }
 
 interface OrdersResponse {
@@ -54,6 +64,54 @@ interface OrderDraft {
   quantity: number;
   weight: number;
   specialInstructions: string;
+}
+
+const orderDateTimeFormatter = new Intl.DateTimeFormat('en-GB', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+  timeZone: 'UTC',
+});
+
+function formatOrderDateTime(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return '-';
+  }
+  return orderDateTimeFormatter.format(parsed);
+}
+
+function toDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatOrderItemLine(item: ExistingOrderItem): string {
+  const quantityOrWeight = typeof item.quantity === 'number' && item.quantity > 0
+    ? `${item.quantity}x`
+    : `${item.weight || 0}kg`;
+  const flavorPart = item.flavorName ? ` (${item.flavorName})` : '';
+  const shapePart = item.cakeShapeName ? `, ${item.cakeShapeName}` : '';
+  return `${quantityOrWeight} ${item.productTypeName || 'Product'}${flavorPart}${shapePart}`;
+}
+
+function getOrderStatusBadgeClass(status: string): string {
+  const normalized = status.toLowerCase();
+  if (normalized === 'completed' || normalized === 'ready') {
+    return 'bg-green-100 text-green-700';
+  }
+  if (normalized === 'cancelled') {
+    return 'bg-red-100 text-red-700';
+  }
+  if (normalized === 'confirmed' || normalized === 'in-progress') {
+    return 'bg-blue-100 text-blue-700';
+  }
+  return 'bg-yellow-100 text-yellow-700';
 }
 
 function extractRefId(value: RefIdValue | null | undefined): string {
@@ -104,6 +162,7 @@ export default function OrderItemsTab({
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string>('');
   const [submitError, setSubmitError] = useState<string>('');
+  const [isPreviousOrdersCollapsed, setIsPreviousOrdersCollapsed] = useState(true);
   const [draft, setDraft] = useState<OrderDraft>({
     productTypeId: '',
     flavorId: '',
@@ -177,6 +236,11 @@ export default function OrderItemsTab({
     () => Array.from({ length: 12 }, (_, index) => (index + 9).toString().padStart(2, '0')),
     []
   );
+  const minimumOrderDate = useMemo(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return toDateInputValue(tomorrow);
+  }, []);
 
   const selectedProductType = productTypes.find((p) => p._id === draft.productTypeId);
   const selectedFlavor = flavors.find((f) => f._id === draft.flavorId);
@@ -244,10 +308,47 @@ export default function OrderItemsTab({
     (selectedProductType.pricingMethod === 'perunit' ? draft.quantity > 0 : draft.weight > 0)
   );
 
+  const draftConstraintError = useMemo(() => {
+    if (!selectedProductType) {
+      return '';
+    }
+
+    if (selectedProductType.pricingMethod === 'perunit') {
+      const minQuantity = selectedProductType.minQuantity ?? 1;
+      const maxQuantity = selectedProductType.maxQuantity;
+
+      if (draft.quantity < minQuantity) {
+        return `Quantity must be at least ${minQuantity} for ${selectedProductType.name}.`;
+      }
+
+      if (typeof maxQuantity === 'number' && draft.quantity > maxQuantity) {
+        return `Quantity must be at most ${maxQuantity} for ${selectedProductType.name}.`;
+      }
+
+      return '';
+    }
+
+    const minWeight = selectedProductType.minWeight ?? 0.5;
+    const maxWeight = selectedProductType.maxWeight;
+
+    if (draft.weight < minWeight) {
+      return `Weight must be at least ${minWeight}kg for ${selectedProductType.name}.`;
+    }
+
+    if (typeof maxWeight === 'number' && draft.weight > maxWeight) {
+      return `Weight must be at most ${maxWeight}kg for ${selectedProductType.name}.`;
+    }
+
+    return '';
+  }, [draft.quantity, draft.weight, selectedProductType]);
+
+  const canAddValidItem = canAddItem && !draftConstraintError;
+
   const canSubmitOrder = Boolean(
     customerId &&
     items.length > 0 &&
     orderDate &&
+    orderDate >= minimumOrderDate &&
     orderHour &&
     (deliveryMethod === 'pickup' || deliveryAddressId)
   );
@@ -266,7 +367,7 @@ export default function OrderItemsTab({
   };
 
   const addItem = () => {
-    if (!selectedProductType || !canAddItem) {
+    if (!selectedProductType || !canAddValidItem) {
       return;
     }
 
@@ -283,20 +384,74 @@ export default function OrderItemsTab({
     };
 
     setItems([...items, newItem]);
-    setDraft((prev) => ({
-      ...prev,
+    setDraft({
+      productTypeId: '',
+      flavorId: '',
+      cakeShapeId: '',
+      quantity: 1,
+      weight: 1,
       specialInstructions: '',
-      quantity: selectedProductType.pricingMethod === 'perunit' ? prev.quantity : 1,
-      weight: selectedProductType.pricingMethod === 'perkg' ? prev.weight : 1,
-    }));
+    });
   };
 
   const removeItem = (itemId: string) => {
     setItems(items.filter((item) => item.id !== itemId));
   };
 
+  const getItemConstraintError = (item: OrderItem, index: number): string => {
+    const product = productTypes.find((p) => p._id === item.productTypeId);
+    const itemLabel = `Item ${index + 1}`;
+
+    if (!product) {
+      return `${itemLabel}: product type is invalid.`;
+    }
+
+    if (product.pricingMethod === 'perunit') {
+      const quantity = item.quantity ?? 0;
+      const minQuantity = product.minQuantity ?? 1;
+      const maxQuantity = product.maxQuantity;
+
+      if (quantity < minQuantity) {
+        return `${itemLabel}: quantity must be at least ${minQuantity} for ${product.name}. Remove this item and add it again with a valid quantity.`;
+      }
+
+      if (typeof maxQuantity === 'number' && quantity > maxQuantity) {
+        return `${itemLabel}: quantity must be at most ${maxQuantity} for ${product.name}. Remove this item and add it again with a valid quantity.`;
+      }
+
+      return '';
+    }
+
+    const weight = item.weight ?? 0;
+    const minWeight = product.minWeight ?? 0.5;
+    const maxWeight = product.maxWeight;
+
+    if (weight < minWeight) {
+      return `${itemLabel}: weight must be at least ${minWeight}kg for ${product.name}. Remove this item and add it again with a valid weight.`;
+    }
+
+    if (typeof maxWeight === 'number' && weight > maxWeight) {
+      return `${itemLabel}: weight must be at most ${maxWeight}kg for ${product.name}. Remove this item and add it again with a valid weight.`;
+    }
+
+    return '';
+  };
+
   const submitOrder = async () => {
     if (!canSubmitOrder) {
+      if (orderDate && orderDate < minimumOrderDate) {
+        setSubmitError('Order date must be tomorrow or later.');
+      }
+      return;
+    }
+
+    const invalidItemError = items
+      .map((item, index) => getItemConstraintError(item, index))
+      .find((error) => Boolean(error));
+
+    if (invalidItemError) {
+      setSubmitError(invalidItemError);
+      setSubmitMessage('');
       return;
     }
 
@@ -358,26 +513,58 @@ export default function OrderItemsTab({
       />
 
       <div className="rounded-lg border border-gray-200 p-4 space-y-3">
-        <h3 className="font-semibold text-gray-800">Previous Orders</h3>
-        {previousOrdersLoading ? (
-          <p className="text-sm text-gray-500">Loading previous orders...</p>
-        ) : previousOrders.length === 0 ? (
-          <p className="text-sm text-gray-500">No previous orders for this customer.</p>
-        ) : (
-          <div className="space-y-2">
-            {previousOrders.map((order) => (
-              <div key={order._id} className="flex items-center justify-between rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
-                <div>
-                  <p className="font-semibold text-gray-800">{order.orderNumber}</p>
-                  <p className="text-gray-600">{new Date(order.orderDateTime).toLocaleString()} • {order.deliveryMethod}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-800">{order.totalAmount.toFixed(2)}</p>
-                  <p className="text-xs text-gray-600 capitalize">{order.status}</p>
-                </div>
+        <button
+          type="button"
+          onClick={() => setIsPreviousOrdersCollapsed((prev) => !prev)}
+          className="w-full flex items-center justify-between text-left"
+        >
+          <h3 className="font-semibold text-gray-800">Previous Orders</h3>
+          <span
+            className={`text-lg font-bold text-gray-700 transition-transform duration-200 ${isPreviousOrdersCollapsed ? 'rotate-0' : 'rotate-180'}`}
+            aria-hidden="true"
+          >
+            ▾
+          </span>
+        </button>
+
+        {!isPreviousOrdersCollapsed && (
+          <>
+            {previousOrdersLoading ? (
+              <p className="text-sm text-gray-500">Loading previous orders...</p>
+            ) : previousOrders.length === 0 ? (
+              <p className="text-sm text-gray-500">No previous orders for this customer.</p>
+            ) : (
+              <div className="space-y-2">
+                {previousOrders.map((order) => (
+                  <div key={order._id} className="rounded border border-gray-200 bg-gray-50 px-3 py-3 text-sm space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-gray-800">{order.orderNumber}</p>
+                        <p className="text-gray-600">{order.customerName || 'Customer'} • {formatOrderDateTime(order.orderDateTime)}</p>
+                        <p className="text-gray-600 capitalize">{order.deliveryMethod}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${getOrderStatusBadgeClass(order.status)}`}>
+                          {order.status}
+                        </span>
+                        <p className="font-semibold text-gray-800 mt-1">{order.totalAmount.toFixed(2)}</p>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-gray-700 space-y-1">
+                      <p className="font-medium">{order.items?.length || 0} item(s)</p>
+                      {order.items?.slice(0, 2).map((item, index) => (
+                        <p key={`${order._id}-item-${index}`}>{formatOrderItemLine(item)}</p>
+                      ))}
+                      {(order.items?.length || 0) > 2 && (
+                        <p className="text-gray-500">+{(order.items?.length || 0) - 2} more</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
 
@@ -485,12 +672,16 @@ export default function OrderItemsTab({
           <button
             type="button"
             onClick={addItem}
-            disabled={!canAddItem}
+            disabled={!canAddValidItem}
             className="px-4 py-2 bg-gray-800 text-white rounded-md text-sm disabled:opacity-50"
           >
             Add Item
           </button>
         </div>
+
+        {draftConstraintError && (
+          <p className="text-sm text-red-600">{draftConstraintError}</p>
+        )}
       </div>
 
       <div className="rounded-lg border border-gray-200 p-4 space-y-3">
@@ -535,8 +726,10 @@ export default function OrderItemsTab({
               type="date"
               value={orderDate}
               onChange={(e) => setOrderDate(e.target.value)}
+              min={minimumOrderDate}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
             />
+            <p className="text-xs text-gray-500 mt-1">Earliest available date is tomorrow.</p>
           </div>
 
           <div>

@@ -23,6 +23,24 @@ const ACTION_ORDER = [
   "admin_invitation_resent",
 ];
 
+const activityTimestampFormatter = new Intl.DateTimeFormat('en-GB', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+  timeZone: 'UTC',
+});
+
+function formatActivityTimestamp(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return '-';
+  }
+  return activityTimestampFormatter.format(parsed);
+}
+
 export default function RecentActivity({ activities, isLoading }: RecentActivityProps) {
   const [filter, setFilter] = useState<string>("all");
 
@@ -98,7 +116,7 @@ export default function RecentActivity({ activities, isLoading }: RecentActivity
                   {/* Timestamp */}
                   <div className="ml-4 text-right">
                     <span className="text-xs text-gray-400">
-                      {new Date(activity.timestamp).toLocaleString()}
+                      {formatActivityTimestamp(activity.timestamp)}
                     </span>
                   </div>
                 </div>

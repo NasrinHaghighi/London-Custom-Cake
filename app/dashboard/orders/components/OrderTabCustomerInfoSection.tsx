@@ -64,7 +64,12 @@ export default function OrderTabCustomerInfoSection({
   const isCollapsed = collapsedOverride ?? isSectionComplete;
 
   if (!customerId) {
-    return null;
+    return (
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h3 className="font-semibold text-gray-800">Order Contact Summary</h3>
+        <p className="text-sm text-gray-600 mt-2">Customer information is not loaded yet. Please go back to the previous step and save customer details.</p>
+      </div>
+    );
   }
 
   return (

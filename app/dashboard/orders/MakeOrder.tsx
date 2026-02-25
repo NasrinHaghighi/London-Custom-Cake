@@ -127,20 +127,21 @@ export default function MakeOrder() {
   const handleNextFromCustomer = async () => {
     if (!isCustomerTabValid || isCreatingCustomer || isSavingAddress) return;
 
-    if (customerForm.deliveryMethod === 'pickup') {
-      setSelectedDeliveryAddressId('');
-      setActiveTab('order');
-      return;
-    }
-
-    // If customer found and adding new address
-    if (lookupStatus === 'found' && customerId && customerForm.addressMode === 'new' && customerForm.newAddress.line1) {
-      await handleSaveNewAddress();
-      return;
-    }
-
-    // If customer found and using existing address, just move to next tab
+    // Existing customer flow
     if (lookupStatus === 'found') {
+      if (customerForm.deliveryMethod === 'pickup') {
+        setSelectedDeliveryAddressId('');
+        setActiveTab('order');
+        return;
+      }
+
+      // Existing customer + delivery + add new address
+      if (customerId && customerForm.addressMode === 'new' && customerForm.newAddress.line1) {
+        await handleSaveNewAddress();
+        return;
+      }
+
+      // Existing customer + delivery + selected existing address
       setSelectedDeliveryAddressId(customerForm.selectedAddressId);
       setActiveTab('order');
       return;
