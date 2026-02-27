@@ -69,6 +69,11 @@ export async function GET(request: NextRequest) {
     const validatedQuery = orderQuerySchema.parse({
       customerId: request.nextUrl.searchParams.get('customerId') || undefined,
       status: request.nextUrl.searchParams.get('status') || undefined,
+      paymentStatus: request.nextUrl.searchParams.get('paymentStatus') || undefined,
+      productTypeId: request.nextUrl.searchParams.get('productTypeId') || undefined,
+      search: request.nextUrl.searchParams.get('search') || undefined,
+      from: request.nextUrl.searchParams.get('from') || undefined,
+      to: request.nextUrl.searchParams.get('to') || undefined,
       page: request.nextUrl.searchParams.get('page') || undefined,
       limit: request.nextUrl.searchParams.get('limit') || undefined,
     });
@@ -81,6 +86,41 @@ export async function GET(request: NextRequest) {
 
     if (validatedQuery.status) {
       filter.status = validatedQuery.status;
+    }
+
+    if (validatedQuery.paymentStatus) {
+      filter.paymentStatus = validatedQuery.paymentStatus;
+    }
+
+    if (validatedQuery.productTypeId) {
+      filter['items.productTypeId'] = new mongoose.Types.ObjectId(validatedQuery.productTypeId);
+    }
+
+    if (validatedQuery.search) {
+      const regex = new RegExp(validatedQuery.search.trim(), 'i');
+      filter.$or = [
+        { orderNumber: regex },
+        { customerName: regex },
+        { customerPhone: regex },
+      ];
+    }
+
+    if (validatedQuery.from || validatedQuery.to) {
+      const orderDateFilter: Record<string, Date> = {};
+
+      if (validatedQuery.from) {
+        const fromDate = new Date(validatedQuery.from);
+        fromDate.setHours(0, 0, 0, 0);
+        orderDateFilter.$gte = fromDate;
+      }
+
+      if (validatedQuery.to) {
+        const toDate = new Date(validatedQuery.to);
+        toDate.setHours(23, 59, 59, 999);
+        orderDateFilter.$lte = toDate;
+      }
+
+      filter.orderDateTime = orderDateFilter;
     }
 
     const skip = (validatedQuery.page - 1) * validatedQuery.limit;

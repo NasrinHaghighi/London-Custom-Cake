@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import LogoutButton from './LogoutButton';
 
 interface User {
@@ -15,6 +15,8 @@ interface SidebarProps {
 
 export default function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const ordersView = searchParams.get('view');
 
   const isActive = (path: string) => {
     if (path === '/dashboard') {
@@ -23,11 +25,15 @@ export default function Sidebar({ user }: SidebarProps) {
     return pathname.startsWith(path);
   };
 
+  const isOrdersRoute = pathname.startsWith('/dashboard/orders');
+  const isOrdersCreateActive = isOrdersRoute && ordersView === 'create';
+  const isOrdersListActive = isOrdersRoute && ordersView !== 'create';
+
   return (
     <div className="w-64 bg-white shadow-md flex flex-col h-screen sticky top-0">
       {/* User Info Section */}
       {user && (
-        <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-gray-800 to-gray-900 flex-shrink-0">
+        <div className="p-4 border-b border-gray-200 bg-linear-to-r from-gray-800 to-gray-900 shrink-0">
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-white font-bold text-lg">
@@ -79,12 +85,24 @@ export default function Sidebar({ user }: SidebarProps) {
               <Link
                 href="/dashboard/orders"
                 className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-                  isActive('/dashboard/orders')
+                  isOrdersListActive
                     ? 'bg-gray-800 text-white'
                     : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                 }`}
               >
-                <span className="font-medium">Make an Order</span>
+                <span className="font-medium">All Orders</span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/dashboard/orders?view=create"
+                className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                  isOrdersCreateActive
+                    ? 'bg-gray-800 text-white'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                <span className="font-medium">Make Order</span>
               </Link>
             </li>
           </ul>
@@ -155,7 +173,7 @@ export default function Sidebar({ user }: SidebarProps) {
       </div>
 
       {/* Logout Button */}
-      <div className="p-4 border-t border-gray-200 flex-shrink-0">
+      <div className="p-4 border-t border-gray-200 shrink-0">
         <LogoutButton />
       </div>
     </div>

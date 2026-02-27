@@ -43,6 +43,13 @@ export default function MakeOrder() {
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [isOrderCreated, setIsOrderCreated] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<{
+    _id: string;
+    orderNumber: string;
+    totalAmount: number;
+    paidAmount: number;
+    paymentStatus: 'unpaid' | 'partial' | 'paid';
+  } | null>(null);
 
   const isLoading = productsLoading || shapesLoading;
 
@@ -72,7 +79,28 @@ export default function MakeOrder() {
     return isOrderCreated;
   };
 
-  const handleOrderCreated = () => {
+  const handleOrderCreated = (order: {
+    _id: string;
+    orderNumber: string;
+    totalAmount: number;
+    paidAmount: number;
+    paymentStatus: 'unpaid' | 'partial' | 'paid';
+  }) => {
+    setCreatedOrder(order);
+    setIsOrderCreated(true);
+    setActiveTab('payment');
+  };
+
+  const handleManagePayment = (order: {
+    _id: string;
+    orderNumber: string;
+    totalAmount: number;
+    paymentStatus: 'unpaid' | 'partial' | 'paid';
+  }) => {
+    setCreatedOrder({
+      ...order,
+      paidAmount: 0,
+    });
     setIsOrderCreated(true);
     setActiveTab('payment');
   };
@@ -345,11 +373,22 @@ export default function MakeOrder() {
           onDeliveryMethodChange={handleDeliveryMethodChange}
           onDeliveryAddressChange={handleDeliveryAddressChange}
           onOrderCreated={handleOrderCreated}
+          onManagePayment={handleManagePayment}
         />
       )}
 
       {!isLoading && activeTab === 'payment' && (
-        <PaymentTab />
+        createdOrder ? (
+          <PaymentTab
+            orderId={createdOrder._id}
+            orderNumber={createdOrder.orderNumber}
+            totalAmount={createdOrder.totalAmount}
+          />
+        ) : (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-700">
+            Create an order first to manage payments.
+          </div>
+        )
       )}
 
 

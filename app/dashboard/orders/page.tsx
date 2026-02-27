@@ -1,5 +1,5 @@
-import MakeOrder from './MakeOrder';
+import OrdersWorkspace from './OrdersWorkspace';
 
 export default function OrdersPage() {
-  return <MakeOrder />;
+  return <OrdersWorkspace />;
 }

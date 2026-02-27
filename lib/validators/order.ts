@@ -48,6 +48,11 @@ export const createOrderSchema = z.object({
 export const orderQuerySchema = z.object({
   customerId: z.string().regex(objectIdRegex, 'Invalid customer ID').optional(),
   status: z.enum(['pending', 'confirmed', 'in-progress', 'ready', 'completed', 'cancelled']).optional(),
+  paymentStatus: z.enum(['unpaid', 'partial', 'paid']).optional(),
+  productTypeId: z.string().regex(objectIdRegex, 'Invalid product type ID').optional(),
+  search: z.string().max(100, 'Search text too long').optional(),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });

@@ -46,6 +46,7 @@ interface ExistingOrder {
   customerName?: string;
   deliveryMethod: DeliveryMethod;
   status: string;
+  paymentStatus?: 'unpaid' | 'partial' | 'paid';
   totalAmount: number;
   orderDateTime: string;
   items?: ExistingOrderItem[];
@@ -114,6 +115,16 @@ function getOrderStatusBadgeClass(status: string): string {
   return 'bg-yellow-100 text-yellow-700';
 }
 
+function getPaymentStatusBadgeClass(status?: 'unpaid' | 'partial' | 'paid'): string {
+  if (status === 'paid') {
+    return 'bg-green-100 text-green-700';
+  }
+  if (status === 'partial') {
+    return 'bg-yellow-100 text-yellow-700';
+  }
+  return 'bg-gray-100 text-gray-700';
+}
+
 function extractRefId(value: RefIdValue | null | undefined): string {
   if (!value) {
     return '';
@@ -140,7 +151,19 @@ interface OrderItemsTabProps {
   deliveryMethod: DeliveryMethod;
   onDeliveryMethodChange: (method: DeliveryMethod) => void;
   onDeliveryAddressChange: (addressId: string) => void;
-  onOrderCreated: () => void;
+  onOrderCreated: (order: {
+    _id: string;
+    orderNumber: string;
+    totalAmount: number;
+    paidAmount: number;
+    paymentStatus: 'unpaid' | 'partial' | 'paid';
+  }) => void;
+  onManagePayment: (order: {
+    _id: string;
+    orderNumber: string;
+    totalAmount: number;
+    paymentStatus: 'unpaid' | 'partial' | 'paid';
+  }) => void;
 }
 
 export default function OrderItemsTab({
@@ -153,7 +176,8 @@ export default function OrderItemsTab({
   deliveryMethod,
   onDeliveryMethodChange,
   onDeliveryAddressChange,
-  onOrderCreated
+  onOrderCreated,
+  onManagePayment
 }: OrderItemsTabProps) {
   const queryClient = useQueryClient();
   const [orderDate, setOrderDate] = useState<string>('');
@@ -489,7 +513,13 @@ export default function OrderItemsTab({
 
       setSubmitMessage(`Order created successfully: ${data.order.orderNumber}`);
       await queryClient.invalidateQueries({ queryKey: ['orders-by-customer', customerId] });
-      onOrderCreated();
+      onOrderCreated({
+        _id: data.order._id,
+        orderNumber: data.order.orderNumber,
+        totalAmount: data.order.totalAmount,
+        paidAmount: data.order.paidAmount,
+        paymentStatus: data.order.paymentStatus,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create order';
       setSubmitError(message);
@@ -547,8 +577,28 @@ export default function OrderItemsTab({
                         <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${getOrderStatusBadgeClass(order.status)}`}>
                           {order.status}
                         </span>
+                        <div className="mt-1">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${getPaymentStatusBadgeClass(order.paymentStatus)}`}>
+                            payment: {order.paymentStatus || 'unpaid'}
+                          </span>
+                        </div>
                         <p className="font-semibold text-gray-800 mt-1">{order.totalAmount.toFixed(2)}</p>
                       </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => onManagePayment({
+                          _id: order._id,
+                          orderNumber: order.orderNumber,
+                          totalAmount: order.totalAmount,
+                          paymentStatus: order.paymentStatus || 'unpaid',
+                        })}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                      >
+                        Manage Payment
+                      </button>
                     </div>
 
                     <div className="text-xs text-gray-700 space-y-1">
