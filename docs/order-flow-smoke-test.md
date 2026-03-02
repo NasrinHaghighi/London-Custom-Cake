@@ -12,6 +12,9 @@ Use this quick checklist after any change to orders/customer flow.
 - [ ] Product with shapes requires shape
 - [ ] Product without shapes can add item without shape
 - [ ] Date + time selection works (`09:00` to `20:00` only)
+- [ ] When setting **Custom Decorations** text, it appears on the order detail page
+- [ ] Choose a complexity level (Low/Medium/High) and confirm the badge shows appropriately
+- [ ] Complexity propagates to the orders list (order complexity should be the highest level among items)
 
 ## 3) Pricing & Rules
 - [ ] Item draft total updates when qty/weight changes
@@ -28,8 +31,16 @@ Use this quick checklist after any change to orders/customer flow.
 Run:
 
 ```powershell
-pwsh -File .\scripts\test-orders-api.ps1 -AdminPhone "<phone>" -AdminPassword "<password>" -CustomerPhone "<customer_phone>"
+pwsh -File .\scripts\test-orders-api.ps1 \
+  -AdminPhone "<phone>" \
+  -AdminPassword "<password>" \
+  -CustomerPhone "<customer_phone>" \
+  -Complexity High \
+  -Decorations "Test decoration"
 ```
 
+(You can repeat with `Low`/`Medium` complexity or loop the script to cover all values.)
+
 - [ ] Pickup + delivery order creation pass
+- [ ] Items reflect specified complexity & decorations in response
 - [ ] History endpoint returns created orders

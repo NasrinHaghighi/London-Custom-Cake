@@ -46,6 +46,11 @@ const OrderItemSchema = new Schema(
     flavorExtraPrice: { type: Number, required: true, min: 0, default: 0 },
     lineTotal: { type: Number, required: true, min: 0 },
     specialInstructions: { type: String, default: '' },
+    customDecorations: { type: String, default: '' },
+    customComplexityAdjustment: {
+      type: String,
+      enum: ['Low', 'Medium', 'High'],
+    },
   },
   { _id: false }
 );

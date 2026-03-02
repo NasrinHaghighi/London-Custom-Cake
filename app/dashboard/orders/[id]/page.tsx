@@ -20,6 +20,7 @@ type OrderItem = {
   flavorExtraPrice: number;
   lineTotal: number;
   specialInstructions?: string;
+  customComplexityAdjustment?: 'Low' | 'Medium' | 'High';
 };
 
 type DeliveryAddress = {
@@ -52,6 +53,7 @@ type OrderDetail = {
   status: OrderStatus;
   createdAt: string;
   updatedAt: string;
+  complexity?: 'Low' | 'Medium' | 'High';
 };
 
 type OrderDetailResponse = {
@@ -93,6 +95,28 @@ function getPaymentStatusClass(status: PaymentStatus) {
   if (status === 'paid') return 'bg-green-100 text-green-700';
   if (status === 'partial') return 'bg-yellow-100 text-yellow-700';
   return 'bg-gray-100 text-gray-700';
+}
+
+function getComplexityClass(level: 'Low' | 'Medium' | 'High' | undefined) {
+  if (level === 'High') return 'bg-red-100 text-red-800';
+  if (level === 'Low') return 'bg-green-100 text-green-800';
+  return 'bg-yellow-100 text-yellow-800';
+}
+
+function deriveOrderComplexity(order: OrderDetail): 'Low' | 'Medium' | 'High' {
+  const levels = ['Low', 'Medium', 'High'] as const;
+  let highestIndex = 1;
+  if (Array.isArray(order.items)) {
+    for (const item of order.items) {
+      const lvl = (item.customComplexityAdjustment as any) || 'Medium';
+      const idx = levels.indexOf(lvl);
+      if (idx > highestIndex) {
+        highestIndex = idx;
+        if (highestIndex === 2) break;
+      }
+    }
+  }
+  return levels[highestIndex];
 }
 
 export default function OrderDetailPage() {
@@ -187,7 +211,7 @@ export default function OrderDetailPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <p className="text-xs uppercase text-gray-500">Order Status</p>
             <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${getStatusClass(order.status)}`}>
@@ -198,6 +222,12 @@ export default function OrderDetailPage() {
             <p className="text-xs uppercase text-gray-500">Payment Status</p>
             <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${getPaymentStatusClass(order.paymentStatus)}`}>
               {order.paymentStatus}
+            </span>
+          </div>
+          <div>
+            <p className="text-xs uppercase text-gray-500">Complexity</p>
+            <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold ${getComplexityClass(order.complexity || deriveOrderComplexity(order))}`}>
+              {order.complexity || deriveOrderComplexity(order)}
             </span>
           </div>
           <div>
@@ -247,6 +277,16 @@ export default function OrderDetailPage() {
                   <td className="py-2 pr-3">
                     <div className="font-medium text-gray-800">{item.productTypeName}</div>
                     {item.cakeShapeName ? <div className="text-xs text-gray-500">{item.cakeShapeName}</div> : null}
+                    {item.customDecorations && (
+                      <div className="text-blue-600 text-xs mt-1 font-medium">🎨 Decoration: {item.customDecorations}</div>
+                    )}
+                    {item.customComplexityAdjustment ? (
+                      <div className="text-xs mt-1">
+                        <span className={`px-2 py-0.5 rounded-full font-medium ${getComplexityClass(item.customComplexityAdjustment)}`}>
+                          {item.customComplexityAdjustment}
+                        </span>
+                      </div>
+                    ) : null}
                   </td>
                   <td className="py-2 pr-3 text-gray-700">{item.flavorName}</td>
                   <td className="py-2 pr-3 text-gray-700">

@@ -48,6 +48,9 @@ export const createProductTypeSchema = z.object({
 
   // Cake shapes (array of shape IDs)
   shapeIds: z.array(z.string()).default([]),
+
+  // Prep time complexity enum
+  basePrepTime: z.enum(['Low', 'Medium', 'High']).default('Medium'),
 })
 .refine(
   (data) => {

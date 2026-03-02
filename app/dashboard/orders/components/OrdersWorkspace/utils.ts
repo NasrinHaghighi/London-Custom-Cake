@@ -108,3 +108,10 @@ export function getPaymentStatusClass(status: PaymentStatus) {
   if (status === 'partial') return 'bg-yellow-100 text-yellow-700';
   return 'bg-gray-100 text-gray-700';
 }
+
+export function getComplexityClass(level: 'Low' | 'Medium' | 'High' | undefined) {
+  if (level === 'High') return 'bg-red-100 text-red-800';
+  if (level === 'Low') return 'bg-green-100 text-green-800';
+  // Medium or undefined default
+  return 'bg-yellow-100 text-yellow-800';
+}

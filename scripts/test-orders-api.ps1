@@ -8,6 +8,8 @@ param(
   [string]$CustomerPhone,
   [int]$Quantity = 1,
   [double]$Weight = 1.0,
+  [string]$Complexity = 'Low',               # new parameter to test custom complexity
+  [string]$Decorations = '',                # new parameter to test custom decorations
   [switch]$SkipDeliveryTest
 )
 
@@ -175,12 +177,19 @@ if (-not $cakeShapeId) {
 Write-Host "Using shape id: $cakeShapeId" -ForegroundColor Green
 
 function New-OrderItem {
+  param(
+    [string]$ComplexityLevel = 'Low',
+    [string]$DecorationText = ''
+  )
+
   $item = @{
     productTypeId        = $productTypeId
     flavorId             = $flavorId
     cakeShapeId          = $cakeShapeId
     specialInstructions  = 'Automated backend test order'
   }
+  if ($DecorationText) { $item.customDecorations = $DecorationText }
+  if ($ComplexityLevel) { $item.customComplexityAdjustment = $ComplexityLevel }
 
   if ($pricingMethod -eq 'perkg') {
     $minWeight = 0
@@ -216,7 +225,7 @@ $pickupPayload = @{
   customerId      = $customerId
   deliveryMethod  = 'pickup'
   orderDateTime   = (Get-Date).AddHours(3).ToString('o')
-  items           = @(New-OrderItem)
+  items           = @(New-OrderItem -ComplexityLevel $Complexity -DecorationText $Decorations)
   notes           = 'API automated pickup test'
   discount        = 0
   paidAmount      = 0
@@ -227,6 +236,19 @@ if (-not $pickupCreate.success) {
   throw "Pickup order creation failed"
 }
 Write-Host "Pickup order created: $($pickupCreate.order.orderNumber)" -ForegroundColor Green
+
+# verify complexity/decoration in response
+$createdItem = $pickupCreate.order.items[0]
+if ($createdItem.customComplexityAdjustment -ne $Complexity) {
+  Write-Host "WARNING: expected complexity '$Complexity' but got '$($createdItem.customComplexityAdjustment)'" -ForegroundColor Yellow
+} else {
+  Write-Host "Complexity field saved correctly: $Complexity" -ForegroundColor Green
+}
+if ($createdItem.customDecorations -ne $Decorations) {
+  Write-Host "WARNING: expected decorations '$Decorations' but got '$($createdItem.customDecorations)'" -ForegroundColor Yellow
+} else {
+  Write-Host "Decorations field saved correctly: $Decorations" -ForegroundColor Green
+}
 
 if (-not $SkipDeliveryTest -and $deliveryAddress) {
   Write-Step "Create delivery order"
@@ -260,6 +282,21 @@ if (-not $history.success) {
 Write-Host "Order history count (page): $($history.orders.Count) / total: $($history.total)" -ForegroundColor Green
 $history.orders | Select-Object -First 5 | ForEach-Object {
   Write-Host " - $($_.orderNumber) | $($_.deliveryMethod) | total=$($_.totalAmount) | status=$($_.status)"
+}
+
+# run through all complexity levels to ensure payload handling works
+$complexityLevels = @('Low','Medium','High')
+foreach ($lvl in $complexityLevels) {
+  Write-Step "Create order with complexity $lvl"
+  $testPayload = @{ customerId = $customerId; deliveryMethod = 'pickup'; orderDateTime = (Get-Date).AddHours(4).ToString('o'); items = @(New-OrderItem -ComplexityLevel $lvl -DecorationText "demo $lvl"); notes = "Complexity smoke test $lvl"; discount = 0; paidAmount = 0 }
+  $result = Invoke-Api -Method 'POST' -Path '/api/orders' -Body $testPayload -Session $session
+  if (-not $result.success) { throw "Failed to create $lvl test order" }
+  $item = $result.order.items[0]
+  if ($item.customComplexityAdjustment -ne $lvl) {
+    Write-Host "ERROR: complexity mismatch for $lvl order" -ForegroundColor Red
+  } else {
+    Write-Host "Order $($result.order.orderNumber) complexity OK ($lvl)" -ForegroundColor Green
+  }
 }
 
 Write-Host "`nOrder backend test completed successfully." -ForegroundColor Green

@@ -22,6 +22,7 @@ export interface ProductTypeForm {
   maxWeight?: number;
   hasMultipleShapes?: boolean;
   shapeIds?: string[];
+  basePrepTime?: 'Low' | 'Medium' | 'High';
 }
 
 export default function ProductTypesTab() {
@@ -39,6 +40,7 @@ export default function ProductTypesTab() {
     maxWeight: undefined,
     hasMultipleShapes: false,
     shapeIds: [],
+    basePrepTime: 'Medium',
   });
 
   // Edit Modal State
@@ -57,6 +59,7 @@ export default function ProductTypesTab() {
     maxWeight: undefined,
     hasMultipleShapes: false,
     shapeIds: [],
+    basePrepTime: 'Medium',
   });
 
   // Custom Hooks
@@ -77,6 +80,7 @@ export default function ProductTypesTab() {
       maxWeight: undefined,
       hasMultipleShapes: false,
       shapeIds: [],
+      basePrepTime: 'Medium',
     });
   }, []);
 
@@ -116,6 +120,7 @@ export default function ProductTypesTab() {
       maxWeight: productType.maxWeight,
       hasMultipleShapes: (productType.shapeIds && productType.shapeIds.length > 0) ? true : false,
       shapeIds: productType.shapeIds || [],
+      basePrepTime: productType.basePrepTime || 'Medium',
     });
     setIsEditModalOpen(true);
   }, []);

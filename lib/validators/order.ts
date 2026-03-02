@@ -9,6 +9,8 @@ export const orderItemInputSchema = z.object({
   quantity: z.number().positive('Quantity must be greater than 0').optional(),
   weight: z.number().positive('Weight must be greater than 0').optional(),
   specialInstructions: z.string().max(1000, 'Special instructions too long').optional().default(''),
+  customDecorations: z.string().max(500, 'Custom decorations too long').optional().default(''),
+  customComplexityAdjustment: z.enum(['Low', 'Medium', 'High']).optional(),
 }).refine((data) => Boolean(data.quantity) || Boolean(data.weight), {
   message: 'Either quantity or weight is required',
   path: ['quantity'],

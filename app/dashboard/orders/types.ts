@@ -47,6 +47,8 @@ export interface OrderItem {
   quantity?: number;
   weight?: number;
   specialInstructions: string;
+  customDecorations?: string;
+  customComplexityAdjustment?: 'Low' | 'Medium' | 'High';
   lineTotal?: number;
 }
 

@@ -5,6 +5,7 @@ export interface ProductType {
   isActive: boolean;
   sortOrder: number;
   pricingMethod: 'perunit' | 'perkg';
+  basePrepTime?: 'Low' | 'Medium' | 'High';
   unitPrice?: number;
   minQuantity?: number;
   maxQuantity?: number;
@@ -19,6 +20,7 @@ export interface ProductTypeInput {
   description: string;
   isActive: boolean;
   pricingMethod: 'perunit' | 'perkg';
+  basePrepTime?: 'Low' | 'Medium' | 'High';
   unitPrice?: number;
   minQuantity?: number;
   maxQuantity?: number;

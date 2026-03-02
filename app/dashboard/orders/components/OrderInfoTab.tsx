@@ -65,6 +65,8 @@ interface OrderDraft {
   quantity: number;
   weight: number;
   specialInstructions: string;
+  customDecorations: string;
+  customComplexityAdjustment: 'Low' | 'Medium' | 'High' | '';
 }
 
 const orderDateTimeFormatter = new Intl.DateTimeFormat('en-GB', {
@@ -194,6 +196,8 @@ export default function OrderItemsTab({
     quantity: 1,
     weight: 1,
     specialInstructions: '',
+    customDecorations: '',
+    customComplexityAdjustment: '',
   });
 
   // Fetch customer data using React Query (5min stale time per architecture)
@@ -404,6 +408,8 @@ export default function OrderItemsTab({
       quantity: isPerUnit ? draft.quantity : undefined,
       weight: isPerUnit ? undefined : draft.weight,
       specialInstructions: draft.specialInstructions,
+      customDecorations: draft.customDecorations || undefined,
+      customComplexityAdjustment: draft.customComplexityAdjustment ? (draft.customComplexityAdjustment as 'Low' | 'Medium' | 'High') : undefined,
       lineTotal: draftLineTotal,
     };
 
@@ -415,6 +421,8 @@ export default function OrderItemsTab({
       quantity: 1,
       weight: 1,
       specialInstructions: '',
+      customDecorations: '',
+      customComplexityAdjustment: '',
     });
   };
 
@@ -496,6 +504,8 @@ export default function OrderItemsTab({
           quantity: item.quantity,
           weight: item.weight,
           specialInstructions: item.specialInstructions || '',
+          customDecorations: item.customDecorations || '',
+          customComplexityAdjustment: item.customComplexityAdjustment,
         })),
         notes: orderNotes,
       };
@@ -717,6 +727,53 @@ export default function OrderItemsTab({
           </div>
         )}
 
+        {/* Custom Decorations Section */}
+        {selectedProductType && (
+          <div className="border border-blue-200 bg-blue-50 rounded-lg p-4 space-y-3">
+            <h4 className="font-medium text-blue-900 text-sm">✨ Custom Decorations (Optional)</h4>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Describe custom decorations</label>
+              <input
+                type="text"
+                value={draft.customDecorations}
+                onChange={(e) => setDraft({ ...draft, customDecorations: e.target.value })}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                placeholder="e.g., gold leaf, custom piping, intricate design..."
+              />
+            </div>
+
+            {draft.customDecorations && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Complexity level with decoration:
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['Low', 'Medium', 'High'] as const).map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setDraft({ ...draft, customComplexityAdjustment: level })}
+                      className={`py-2 px-3 rounded-md text-sm font-medium transition-all ${
+                        draft.customComplexityAdjustment === level
+                          ? 'bg-blue-600 text-white border-2 border-blue-700'
+                          : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-blue-400'
+                      }`}
+                    >
+                      {level}
+                    </button>
+                  ))}
+                </div>
+                {draft.customComplexityAdjustment && (
+                  <p className="text-xs text-blue-700 mt-2 font-medium">
+                    ⏱️ Staff sees: {selectedProductType.basePrepTime} (base) + {draft.customComplexityAdjustment} (custom) = <strong>{draft.customComplexityAdjustment}</strong> prep time
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-700">Draft item total: <span className="font-semibold">{draftLineTotal.toFixed(2)}</span></p>
           <button
@@ -752,6 +809,31 @@ export default function OrderItemsTab({
                     <p className="text-gray-600">
                       {item.quantity ? `Qty: ${item.quantity}` : `Weight: ${item.weight || 0}kg`}
                     </p>
+                    {item.customDecorations && (
+                      <p className="text-blue-600 text-xs mt-1 font-medium">🎨 Decoration: {item.customDecorations}</p>
+                    )}
+
+                    {/* Effective prep time badge (custom override or base) */}
+                    {
+                      (() => {
+                        const effectivePrep = (item.customComplexityAdjustment as any) || (product?.basePrepTime as any) || 'Medium';
+                        const badgeClass =
+                          effectivePrep === 'Low' ? 'bg-green-100 text-green-800' :
+                          effectivePrep === 'High' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800';
+
+                        return (
+                          <p className="mt-1">
+                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${badgeClass}`}>⏱️ {effectivePrep}</span>
+                            {item.customComplexityAdjustment ? (
+                              <span className="text-xs text-gray-500 ml-2">(custom)</span>
+                            ) : product?.basePrepTime ? (
+                              <span className="text-xs text-gray-500 ml-2">(base)</span>
+                            ) : null}
+                          </p>
+                        );
+                      })()
+                    }
                   </div>
                   <div className="flex items-center gap-3">
                     <p className="font-semibold text-gray-800">{(item.lineTotal || 0).toFixed(2)}</p>

@@ -45,6 +45,11 @@ export default function ProductTypeCard({ productType, onEdit, onDelete, isDelet
         <p className="text-sm text-gray-600 mb-2">{productType.description}</p>
       )}
 
+      {/* Show preparation complexity */}
+      {productType.basePrepTime && (
+        <p className="text-sm text-indigo-600 mb-2">Prep: {productType.basePrepTime}</p>
+      )}
+
       <div className="text-sm space-y-1">
         {productType.pricingMethod === 'perunit' && (
           <>
