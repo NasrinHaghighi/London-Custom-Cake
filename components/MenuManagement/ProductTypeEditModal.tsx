@@ -56,6 +56,18 @@ export default function ProductTypeEditModal({
                 <option value="perkg">Per Kg</option>
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Base Prep Time *</label>
+              <select
+                value={form.basePrepTime || 'Medium'}
+                onChange={(e) => setForm({ ...form, basePrepTime: e.target.value as 'Low' | 'Medium' | 'High' })}
+                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
           </div>
 
           {form.pricingMethod === 'perunit' && (

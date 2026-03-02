@@ -115,8 +115,8 @@ export default function OrdersWorkspace() {
   if (activeView === 'create') {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-800">Create Order</h1>
+        <div className="flex items-center justify-end">
+          {/* no heading here; MakeOrder component shows its own title */}
           <button
             type="button"
             onClick={() => {

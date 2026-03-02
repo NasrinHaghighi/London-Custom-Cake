@@ -75,6 +75,7 @@ export function useUpdateProductType(onSuccessCallback?: () => void) {
       description: string;
       isActive: boolean;
       pricingMethod: 'perunit' | 'perkg';
+      basePrepTime?: 'Low' | 'Medium' | 'High';
       unitPrice?: number;
       minQuantity?: number;
       maxQuantity?: number;

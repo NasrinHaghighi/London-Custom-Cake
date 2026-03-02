@@ -27,7 +27,29 @@ export async function GET(
       return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, order });
+    // derive complexity for single order detail
+    const deriveComplexity = (o: any): 'Low' | 'Medium' | 'High' => {
+      const levels = ['Low', 'Medium', 'High'] as const;
+      let highestIndex = 1;
+      if (Array.isArray(o.items)) {
+        for (const item of o.items) {
+          const lvl = item.customComplexityAdjustment || 'Medium';
+          const idx = levels.indexOf(lvl);
+          if (idx > highestIndex) {
+            highestIndex = idx;
+            if (highestIndex === 2) break;
+          }
+        }
+      }
+      return levels[highestIndex];
+    };
+
+    const orderWithComplexity = {
+      ...order,
+      complexity: deriveComplexity(order),
+    };
+
+    return NextResponse.json({ success: true, order: orderWithComplexity });
   } catch (error) {
     logger.error({ error: error instanceof Error ? error.message : 'Unknown error' }, 'Order detail fetch failed');
     return NextResponse.json({ success: false, message: 'Failed to fetch order detail' }, { status: 500 });

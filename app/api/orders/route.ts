@@ -46,6 +46,31 @@ async function getUniqueOrderNumber(): Promise<string> {
   return `ORD-${Date.now()}`;
 }
 
+/**
+ * Determine overall complexity for an order based on its items.
+ *  - any item with "High" pushes result to High
+ *  - otherwise any "Medium" moves it to Medium
+ *  - defaults to Medium if no adjustments present
+ */
+function deriveOrderComplexity(order: any): 'Low' | 'Medium' | 'High' {
+  const levels = ['Low', 'Medium', 'High'] as const;
+  let highestIndex = 1; // default to Medium when nothing is specified
+
+  if (Array.isArray(order.items)) {
+    for (const item of order.items) {
+      const lvl: 'Low' | 'Medium' | 'High' =
+        (item.customComplexityAdjustment as any) || 'Medium';
+      const idx = levels.indexOf(lvl);
+      if (idx > highestIndex) {
+        highestIndex = idx;
+        if (highestIndex === 2) break; // already at highest possible
+      }
+    }
+  }
+
+  return levels[highestIndex];
+}
+
 type AddressDoc = {
   _id?: { toString: () => string };
   label?: string;
@@ -134,12 +159,18 @@ export async function GET(request: NextRequest) {
       Order.countDocuments(filter),
     ]);
 
+    // attach a derived complexity badge to each order item for the listing
+    const ordersWithComplexity = orders.map((o: any) => ({
+      ...o,
+      complexity: deriveOrderComplexity(o),
+    }));
+
     return NextResponse.json({
       success: true,
       page: validatedQuery.page,
       limit: validatedQuery.limit,
       total,
-      orders,
+      orders: ordersWithComplexity,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -297,6 +328,8 @@ export async function POST(request: NextRequest) {
         flavorExtraPrice,
         lineTotal,
         specialInstructions: item.specialInstructions || '',
+        customDecorations: item.customDecorations || '',
+        customComplexityAdjustment: item.customComplexityAdjustment || undefined,
       };
     });
 

@@ -6,6 +6,7 @@ import {
   getDateBadgeMeta,
   getOrderStatusClass,
   getPaymentStatusClass,
+  getComplexityClass,
 } from './utils';
 
 type OrdersWorkspaceTableProps = {
@@ -32,6 +33,7 @@ export default function OrdersWorkspaceTable({ orders, isLoading, onManagePaymen
                 <th className="px-4 py-3">Total</th>
                 <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3">Order Status</th>
+                <th className="px-4 py-3">Complexity</th>
                 <th className="px-4 py-3">Action</th>
               </tr>
             </thead>
@@ -83,6 +85,12 @@ export default function OrdersWorkspaceTable({ orders, isLoading, onManagePaymen
                     <td className="px-4 py-3">
                       <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${getOrderStatusClass(order.status)}`}>
                         {order.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {/* complexity badge derived on server */}
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${getComplexityClass(order.complexity)}`}>
+                        {order.complexity || 'Medium'}
                       </span>
                     </td>
                     <td className="px-4 py-3">

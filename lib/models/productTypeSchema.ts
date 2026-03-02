@@ -32,6 +32,14 @@ const ProductTypeSchema = new Schema(
         ref: 'CakeShape',
       },
     ],
+
+    // Estimated base preparation complexity for the product
+    basePrepTime: {
+      type: String,
+      enum: ['Low', 'Medium', 'High'],
+      required: true,
+      default: 'Medium',
+    },
   },
   { timestamps: true }
 );
