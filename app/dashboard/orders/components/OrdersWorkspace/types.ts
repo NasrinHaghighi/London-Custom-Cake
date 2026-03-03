@@ -33,6 +33,7 @@ export type SelectedOrder = {
   _id: string;
   orderNumber: string;
   totalAmount: number;
+  orderDateTime: string;
 };
 
 export type OrderDetailResponse = {

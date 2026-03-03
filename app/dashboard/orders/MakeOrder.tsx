@@ -49,6 +49,7 @@ export default function MakeOrder() {
     totalAmount: number;
     paidAmount: number;
     paymentStatus: 'unpaid' | 'partial' | 'paid';
+    orderDateTime: string;
   } | null>(null);
 
   const isLoading = productsLoading || shapesLoading;
@@ -85,6 +86,7 @@ export default function MakeOrder() {
     totalAmount: number;
     paidAmount: number;
     paymentStatus: 'unpaid' | 'partial' | 'paid';
+    orderDateTime: string;
   }) => {
     setCreatedOrder(order);
     setIsOrderCreated(true);
@@ -96,6 +98,7 @@ export default function MakeOrder() {
     orderNumber: string;
     totalAmount: number;
     paymentStatus: 'unpaid' | 'partial' | 'paid';
+    orderDateTime: string;
   }) => {
     setCreatedOrder({
       ...order,
@@ -383,6 +386,7 @@ export default function MakeOrder() {
             orderId={createdOrder._id}
             orderNumber={createdOrder.orderNumber}
             totalAmount={createdOrder.totalAmount}
+            orderDateTime={createdOrder.orderDateTime}
           />
         ) : (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-700">

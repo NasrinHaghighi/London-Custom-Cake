@@ -81,7 +81,13 @@ function formatMoney(value: number) {
 function formatDateTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('en-GB');
+  return `${date.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    hour12: false,
+  })}h`;
 }
 
 function getStatusClass(status: OrderStatus) {

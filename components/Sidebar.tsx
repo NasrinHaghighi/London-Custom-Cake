@@ -72,6 +72,18 @@ export default function Sidebar({ user }: SidebarProps) {
                 <span className="font-medium">Overview</span>
               </Link>
             </li>
+            <li>
+              <Link
+                href="/dashboard/calendar"
+                className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                  isActive('/dashboard/calendar')
+                    ? 'bg-gray-800 text-white'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                <span className="font-medium">Calendar</span>
+              </Link>
+            </li>
           </ul>
         </div>
 

@@ -165,6 +165,7 @@ export default function OrdersWorkspace() {
           orderId={paymentOrder._id}
           orderNumber={paymentOrder.orderNumber}
           totalAmount={paymentOrder.totalAmount}
+          orderDateTime={paymentOrder.orderDateTime}
         />
       </div>
     );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCreatePayment, useDeletePayment, usePayments } from '@/hooks/usePayments';
 import { PaymentMethod, PaymentType } from '@/lib/api/payments';
 
@@ -10,6 +11,7 @@ interface PaymentTabProps {
   orderId: string;
   orderNumber: string;
   totalAmount: number;
+  orderDateTime: string;
 }
 
 const euroFormatter = new Intl.NumberFormat('en-GB', {
@@ -48,7 +50,13 @@ function resolveStatus(totalAmount: number, paidAmount: number): PaymentStatus {
   return 'partial';
 }
 
-export default function PaymentTab({ orderId, orderNumber, totalAmount }: PaymentTabProps) {
+export default function PaymentTab({ orderId, orderNumber, totalAmount, orderDateTime }: PaymentTabProps) {
+  const isOrderPassed = useMemo(() => {
+    const orderDate = new Date(orderDateTime);
+    const now = new Date();
+    return orderDate < now;
+  }, [orderDateTime]);
+  const queryClient = useQueryClient();
   const proofImageInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedProofImage, setSelectedProofImage] = useState<string | null>(null);
   const [type, setType] = useState<PaymentType>('payment');
@@ -120,6 +128,10 @@ export default function PaymentTab({ orderId, orderNumber, totalAmount }: Paymen
       note: note.trim() || undefined,
       proofImageDataUrl: proofImageDataUrl || undefined,
     });
+
+    // Invalidate caches so order list & detail pages show fresh payment status
+    await queryClient.invalidateQueries({ queryKey: ['orders-list'] });
+    await queryClient.invalidateQueries({ queryKey: ['payments', orderId] });
 
     setType('payment');
     setMethod('cash');
@@ -202,7 +214,21 @@ export default function PaymentTab({ orderId, orderNumber, totalAmount }: Paymen
         </div>
       </div>
 
-      {totals.status !== 'paid' ? (
+      {isOrderPassed && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="text-amber-600 text-xl">⚠️</div>
+            <div>
+              <h4 className="font-semibold text-amber-800">Payment Blocked - Order Date Passed</h4>
+              <p className="text-sm text-amber-700 mt-1">
+                This order's scheduled date/time has already passed. New payments and refunds are not allowed for past orders.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {totals.status !== 'paid' && !isOrderPassed ? (
       <form onSubmit={handleSubmit} className="rounded-lg border border-gray-200 p-4 space-y-4">
         <h3 className="font-semibold text-gray-800">Add transaction</h3>
 
@@ -369,8 +395,9 @@ export default function PaymentTab({ orderId, orderNumber, totalAmount }: Paymen
                       <button
                         type="button"
                         onClick={() => handleDelete(payment._id)}
-                        disabled={deletePaymentMutation.isPending}
+                        disabled={deletePaymentMutation.isPending || isOrderPassed}
                         className="text-red-600 hover:text-red-700 disabled:opacity-50"
+                        title={isOrderPassed ? 'Cannot delete transactions for past orders' : 'Delete transaction'}
                       >
                         Delete
                       </button>

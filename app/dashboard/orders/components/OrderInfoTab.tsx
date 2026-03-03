@@ -74,7 +74,6 @@ const orderDateTimeFormatter = new Intl.DateTimeFormat('en-GB', {
   month: 'short',
   year: 'numeric',
   hour: '2-digit',
-  minute: '2-digit',
   hour12: false,
   timeZone: 'UTC',
 });
@@ -84,7 +83,7 @@ function formatOrderDateTime(value: string): string {
   if (Number.isNaN(parsed.getTime())) {
     return '-';
   }
-  return orderDateTimeFormatter.format(parsed);
+  return `${orderDateTimeFormatter.format(parsed)}h`;
 }
 
 function toDateInputValue(date: Date): string {
@@ -159,6 +158,7 @@ interface OrderItemsTabProps {
     totalAmount: number;
     paidAmount: number;
     paymentStatus: 'unpaid' | 'partial' | 'paid';
+    orderDateTime: string;
   }) => void;
   onManagePayment: (order: {
     _id: string;
@@ -529,6 +529,7 @@ export default function OrderItemsTab({
         totalAmount: data.order.totalAmount,
         paidAmount: data.order.paidAmount,
         paymentStatus: data.order.paymentStatus,
+        orderDateTime: data.order.orderDateTime,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create order';
