@@ -79,7 +79,7 @@ export function getDateBadgeMeta(orderDateValue: string, orderStatus: OrderStatu
   const orderStart = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
   const diffDays = Math.round((orderStart.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24));
 
-  const isClosed = orderStatus === 'completed' || orderStatus === 'cancelled';
+  const isClosed = orderStatus === 'completed';
 
   if (diffDays < 0 && !isClosed) {
     return { label: 'Overdue', className: 'bg-red-100 text-red-700' };
@@ -98,9 +98,8 @@ export function getDateBadgeMeta(orderDateValue: string, orderStatus: OrderStatu
 
 export function getOrderStatusClass(status: OrderStatus) {
   if (status === 'completed' || status === 'ready') return 'bg-green-100 text-green-700';
-  if (status === 'cancelled') return 'bg-red-100 text-red-700';
-  if (status === 'confirmed' || status === 'in-progress') return 'bg-blue-100 text-blue-700';
-  return 'bg-yellow-100 text-yellow-700';
+  if (status === 'in-progress') return 'bg-blue-100 text-blue-700';
+  return 'bg-yellow-100 text-yellow-700'; // pending
 }
 
 export function getPaymentStatusClass(status: PaymentStatus) {

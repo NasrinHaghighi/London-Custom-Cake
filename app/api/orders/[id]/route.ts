@@ -55,3 +55,94 @@ export async function GET(
     return NextResponse.json({ success: false, message: 'Failed to fetch order detail' }, { status: 500 });
   }
 }
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = authenticateRequest(request);
+    if (!auth.authenticated) {
+      return auth.response;
+    }
+
+    await dbConnect();
+    const { id } = await params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ success: false, message: 'Invalid order ID' }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const { status, orderDateTime } = body;
+
+    // Build update data
+    const updateData: Record<string, unknown> = {};
+
+    // Handle status update
+    if (status) {
+      const validStatuses = ['pending', 'in-progress', 'ready', 'completed'];
+      if (!validStatuses.includes(status)) {
+        return NextResponse.json(
+          { success: false, message: 'Invalid status. Must be one of: pending, in-progress, ready, completed' },
+          { status: 400 }
+        );
+      }
+      updateData.status = status;
+    }
+
+    // Handle orderDateTime update
+    if (orderDateTime) {
+      const dateTime = new Date(orderDateTime);
+      if (isNaN(dateTime.getTime())) {
+        return NextResponse.json(
+          { success: false, message: 'Invalid orderDateTime format' },
+          { status: 400 }
+        );
+      }
+      updateData.orderDateTime = dateTime;
+    }
+
+    // If no valid fields to update
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { success: false, message: 'No valid fields to update (status or orderDateTime)' },
+        { status: 400 }
+      );
+    }
+
+    // Get current order to check transition
+    const currentOrder = await Order.findById(id);
+    if (!currentOrder) {
+      return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
+    }
+
+    // Set timestamp for status changes
+    if (status) {
+      const now = new Date();
+      if (status === 'in-progress' && !currentOrder.startedAt) {
+        updateData.startedAt = now;
+      } else if (status === 'ready' && !currentOrder.readyAt) {
+        updateData.readyAt = now;
+      } else if (status === 'completed' && !currentOrder.completedAt) {
+        updateData.completedAt = now;
+      }
+    }
+
+    const order = await Order.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    ).lean();
+
+    if (!order) {
+      return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
+    }
+
+    logger.info({ orderId: id, newStatus: status, timestamps: { startedAt: order.startedAt, readyAt: order.readyAt, completedAt: order.completedAt } }, 'Order status updated');
+    return NextResponse.json({ success: true, order });
+  } catch (error) {
+    logger.error({ error: error instanceof Error ? error.message : 'Unknown error' }, 'Order status update failed');
+    return NextResponse.json({ success: false, message: 'Failed to update order status' }, { status: 500 });
+  }
+}

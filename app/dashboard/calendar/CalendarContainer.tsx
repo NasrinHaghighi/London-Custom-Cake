@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import CalendarView from './CalendarView.tsx';
-import OperationsView from './OperationsView.tsx';
+import CalendarView from './CalendarView';
+import OperationsView from './OperationsView';
 import { useOrders } from '@/hooks/useOrders';
 
 function monthStart(date: Date) {
@@ -38,6 +38,7 @@ export default function CalendarContainer() {
   const [mode, setMode] = useState<'calendar' | 'list'>(initial || 'calendar');
 
   const [monthDate, setMonthDate] = useState<Date>(() => new Date());
+  const [activeFilter, setActiveFilter] = useState<'all' | 'today' | 'thisWeek' | 'urgent'>('all');
 
   const start = useMemo(() => monthStart(monthDate), [monthDate]);
   const end = useMemo(() => monthEnd(monthDate), [monthDate]);
@@ -92,6 +93,45 @@ export default function CalendarContainer() {
   const goPrevMonth = () => setMonthDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
   const goNextMonth = () => setMonthDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
 
+  const handleFilterToday = () => {
+    setActiveFilter('today');
+    const now = new Date();
+    // Jump to today's month
+    setMonthDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    // Expand today's week
+    setTimeout(() => {
+      setExpandedWeekId(weekIdForDate(now));
+    }, 0);
+  };
+
+  const handleFilterThisWeek = () => {
+    setActiveFilter('thisWeek');
+    const now = new Date();
+    // Jump to this week's month
+    setMonthDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    // Expand this week
+    setTimeout(() => {
+      setExpandedWeekId(weekIdForDate(now));
+    }, 0);
+  };
+
+  const handleFilterUrgent = () => {
+    setActiveFilter((prev) => (prev === 'urgent' ? 'all' : 'urgent'));
+  };
+
+  const handleClearFilter = () => {
+    setActiveFilter('all');
+  };
+
+  // Filter orders based on active filter
+  const filteredOrders = useMemo(() => {
+    if (activeFilter === 'urgent') {
+      // Show only orders with complexity High or paymentStatus unpaid
+      return orders.filter((o) => o.complexity === 'High' || o.paymentStatus === 'unpaid');
+    }
+    return orders;
+  }, [orders, activeFilter]);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -114,13 +154,18 @@ export default function CalendarContainer() {
           <CalendarView
             monthDate={monthDate}
             weeks={weeks}
-            orders={orders}
+            orders={filteredOrders}
             isLoading={isLoading}
             error={error}
             expandedWeekId={expandedWeekId}
             onToggleWeek={(id: string) => setExpandedWeekId((prev) => (prev === id ? null : id))}
             onPrevMonth={goPrevMonth}
             onNextMonth={goNextMonth}
+            activeFilter={activeFilter}
+            onFilterToday={handleFilterToday}
+            onFilterThisWeek={handleFilterThisWeek}
+            onFilterUrgent={handleFilterUrgent}
+            onClearFilter={handleClearFilter}
           />
         ) : (
           <OperationsView orders={orders} isLoading={isLoading} error={error} />

@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { PaymentRecord } from '@/lib/api/payments';
 
-type OrderStatus = 'pending' | 'confirmed' | 'in-progress' | 'ready' | 'completed' | 'cancelled';
+type OrderStatus = 'pending' | 'in-progress' | 'ready' | 'completed';
 type PaymentStatus = 'unpaid' | 'partial' | 'paid';
 
 type OrderItem = {
@@ -92,9 +92,8 @@ function formatDateTime(value: string) {
 
 function getStatusClass(status: OrderStatus) {
   if (status === 'completed' || status === 'ready') return 'bg-green-100 text-green-700';
-  if (status === 'cancelled') return 'bg-red-100 text-red-700';
-  if (status === 'confirmed' || status === 'in-progress') return 'bg-blue-100 text-blue-700';
-  return 'bg-yellow-100 text-yellow-700';
+  if (status === 'in-progress') return 'bg-blue-100 text-blue-700';
+  return 'bg-yellow-100 text-yellow-700'; // pending
 }
 
 function getPaymentStatusClass(status: PaymentStatus) {

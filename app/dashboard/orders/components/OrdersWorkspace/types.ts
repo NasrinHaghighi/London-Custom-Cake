@@ -1,7 +1,7 @@
 import type { CustomerListItem } from '@/lib/api/customers';
 import type { ProductType } from '@/lib/api/productTypes';
 
-export type OrderStatus = 'pending' | 'confirmed' | 'in-progress' | 'ready' | 'completed' | 'cancelled';
+export type OrderStatus = 'pending' | 'in-progress' | 'ready' | 'completed';
 export type PaymentStatus = 'unpaid' | 'partial' | 'paid';
 export type QuickDateFilter = 'all' | 'today' | 'tomorrow' | 'this-week' | 'custom';
 export type ActiveView = 'list' | 'create' | 'payment';

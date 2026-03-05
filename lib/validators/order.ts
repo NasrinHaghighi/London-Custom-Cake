@@ -49,7 +49,7 @@ export const createOrderSchema = z.object({
 
 export const orderQuerySchema = z.object({
   customerId: z.string().regex(objectIdRegex, 'Invalid customer ID').optional(),
-  status: z.enum(['pending', 'confirmed', 'in-progress', 'ready', 'completed', 'cancelled']).optional(),
+  status: z.enum(['pending', 'in-progress', 'ready', 'completed']).optional(),
   paymentStatus: z.enum(['unpaid', 'partial', 'paid']).optional(),
   productTypeId: z.string().regex(objectIdRegex, 'Invalid product type ID').optional(),
   search: z.string().max(100, 'Search text too long').optional(),

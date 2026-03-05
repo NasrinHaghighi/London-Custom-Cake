@@ -87,11 +87,9 @@ export default function OrdersWorkspaceFilters({
         >
           <option value="all">All Order Status</option>
           <option value="pending">Pending</option>
-          <option value="confirmed">Confirmed</option>
           <option value="in-progress">In Progress</option>
           <option value="ready">Ready</option>
           <option value="completed">Completed</option>
-          <option value="cancelled">Cancelled</option>
         </select>
 
         <select

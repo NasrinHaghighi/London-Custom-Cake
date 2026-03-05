@@ -89,6 +89,11 @@ export default function CalendarView({
   onToggleWeek,
   onPrevMonth,
   onNextMonth,
+  activeFilter,
+  onFilterToday,
+  onFilterThisWeek,
+  onFilterUrgent,
+  onClearFilter,
 }: {
   monthDate: Date;
   weeks: { id: string; start: Date; end: Date }[];
@@ -99,6 +104,11 @@ export default function CalendarView({
   onToggleWeek: (id: string) => void;
   onPrevMonth: () => void;
   onNextMonth: () => void;
+  activeFilter: 'all' | 'today' | 'thisWeek' | 'urgent';
+  onFilterToday: () => void;
+  onFilterThisWeek: () => void;
+  onFilterUrgent: () => void;
+  onClearFilter: () => void;
 }) {
   const monthLabel = monthDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 
@@ -131,6 +141,41 @@ export default function CalendarView({
       <div>
         <h1 className="text-3xl font-bold text-gray-800">Order Calendar</h1>
         <p className="text-sm text-gray-600 mt-1">Plan and manage cake orders by delivery date</p>
+      </div>
+
+      {/* Quick Filter Buttons - Sticky */}
+      <div className="sticky top-0 z-10 bg-gray-50 py-3 -mx-6 px-6 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-600">Quick Filters:</span>
+          <button
+            onClick={onFilterToday}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              activeFilter === 'today' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}>
+            Today
+          </button>
+          <button
+            onClick={onFilterThisWeek}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              activeFilter === 'thisWeek' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}>
+            This Week
+          </button>
+          <button
+            onClick={onFilterUrgent}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              activeFilter === 'urgent' ? 'bg-red-600 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}>
+            Urgent Only
+          </button>
+          {activeFilter !== 'all' && (
+            <button
+              onClick={onClearFilter}
+              className="px-3 py-1.5 rounded-md text-sm font-medium bg-gray-600 text-white hover:bg-gray-700 transition-colors">
+              Clear Filter
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow p-4">

@@ -51,6 +51,7 @@ const OrderItemSchema = new Schema(
       type: String,
       enum: ['Low', 'Medium', 'High'],
     },
+    urgent: { type: Boolean, default: false },
   },
   { _id: false }
 );
@@ -101,10 +102,13 @@ const OrderSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'confirmed', 'in-progress', 'ready', 'completed', 'cancelled'],
+      enum: ['pending', 'in-progress', 'ready', 'completed'],
       default: 'pending',
       index: true,
     },
+    startedAt: { type: Date },
+    readyAt: { type: Date },
+    completedAt: { type: Date },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: 'Admin',
