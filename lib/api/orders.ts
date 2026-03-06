@@ -15,6 +15,7 @@ export interface OrderItem {
   lineTotal: number;
   specialInstructions?: string;
   customDecorations?: string;
+  referenceImages?: string[];
   customComplexityAdjustment?: ComplexityLevel;
   urgent?: boolean;
 }
@@ -33,8 +34,12 @@ export interface OrderListItem {
   createdAt?: string;
   updatedAt?: string;
   startedAt?: string;
+  startedByName?: string;
   readyAt?: string;
+  readyByName?: string;
   completedAt?: string;
+  completedByName?: string;
+  notes?: string;
 }
 
 interface OrdersResponse {

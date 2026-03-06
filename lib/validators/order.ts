@@ -1,6 +1,26 @@
 import { z } from 'zod';
 
 const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+const maxReferenceImages = 3;
+const maxReferenceImageValueLength = 7_000_000;
+
+const isHttpUrl = (value: string) => {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const isDataImageUrl = (value: string) => /^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=\r\n]+$/.test(value);
+
+const referenceImageSchema = z
+  .string()
+  .max(maxReferenceImageValueLength, 'Reference image value is too long')
+  .refine((value) => isHttpUrl(value) || isDataImageUrl(value), {
+    message: 'Reference image must be a valid http/https URL or an image data URL',
+  });
 
 export const orderItemInputSchema = z.object({
   productTypeId: z.string().regex(objectIdRegex, 'Invalid product type ID'),
@@ -10,6 +30,11 @@ export const orderItemInputSchema = z.object({
   weight: z.number().positive('Weight must be greater than 0').optional(),
   specialInstructions: z.string().max(1000, 'Special instructions too long').optional().default(''),
   customDecorations: z.string().max(500, 'Custom decorations too long').optional().default(''),
+  referenceImages: z
+    .array(referenceImageSchema)
+    .max(maxReferenceImages, `A maximum of ${maxReferenceImages} reference images is allowed per order item`)
+    .optional()
+    .default([]),
   customComplexityAdjustment: z.enum(['Low', 'Medium', 'High']).optional(),
 }).refine((data) => Boolean(data.quantity) || Boolean(data.weight), {
   message: 'Either quantity or weight is required',

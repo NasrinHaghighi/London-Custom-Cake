@@ -9,6 +9,11 @@ import { TimeSection } from './components/TimeSection';
 import { isToday, isTomorrow, TIME_SECTIONS } from './utils/dateHelpers';
 import { toast } from 'react-hot-toast';
 
+// Helper: format time as HH:mm
+function formatTime(date: Date) {
+  return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
 // Helper: Map API order status to card status
 function mapApiStatusToCardStatus(apiStatus?: string): OrderEnhanced['orderStatus'] {
   switch (apiStatus) {
@@ -77,6 +82,7 @@ export default function OperationsView({
 
         return {
           ...oAny,
+          ...o, // Explicitly spread original order to ensure all fields (items, notes, etc.) are included
           estimatedPrepTime: oAny.estimatedPrepTime || 2,
           orderStatus: oAny.orderStatus || mapApiStatusToCardStatus(o.status),
           productName: oAny.productName || derivedProductName || `Order #${o.orderNumber}`,
@@ -90,6 +96,12 @@ export default function OperationsView({
           startedAt: o.startedAt,
           readyAt: o.readyAt,
           completedAt: o.completedAt,
+          // Include who did each action
+          startedByName: o.startedByName,
+          readyByName: o.readyByName,
+          completedByName: o.completedByName,
+          // Include notes from order
+          notes: o.notes,
         } as OrderEnhanced;
       }),
     [orders],
@@ -271,7 +283,7 @@ export default function OperationsView({
             className="absolute left-0 right-0 z-10 pointer-events-none"
             style={{ top: `${20 + nowPosition * 0.8}%` }}>
             <div className="flex items-center">
-              <div className="bg-red-600 text-white px-2 py-0.5 rounded-l text-xs font-bold">NOW</div>
+              <div className="bg-red-600 text-white px-2 py-0.5 rounded-l text-xs font-bold">NOW {formatTime(currentTime)}</div>
               <div className="flex-1 h-0.5 bg-red-600"></div>
             </div>
           </div>

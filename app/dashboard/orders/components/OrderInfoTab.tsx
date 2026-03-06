@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { OrderItem } from '../types';
 import { ProductType } from '@/lib/api/productTypes';
@@ -66,8 +66,13 @@ interface OrderDraft {
   weight: number;
   specialInstructions: string;
   customDecorations: string;
+  referenceImages: string[];
   customComplexityAdjustment: 'Low' | 'Medium' | 'High' | '';
 }
+
+const MAX_REFERENCE_IMAGES = 3;
+const MAX_REFERENCE_IMAGE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_REFERENCE_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 
 const orderDateTimeFormatter = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',
@@ -185,7 +190,26 @@ export default function OrderItemsTab({
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string>('');
   const [submitError, setSubmitError] = useState<string>('');
+  const [referenceImageError, setReferenceImageError] = useState<string>('');
+  const [isProcessingImages, setIsProcessingImages] = useState(false);
   const [isPreviousOrdersCollapsed, setIsPreviousOrdersCollapsed] = useState(true);
+  const referenceImagesInputRef = useRef<HTMLInputElement | null>(null);
+  const editReferenceImagesInputRef = useRef<HTMLInputElement | null>(null);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingItemIndex, setEditingItemIndex] = useState<number>(-1);
+  const [editReferenceImageError, setEditReferenceImageError] = useState<string>('');
+  const [isEditingImages, setIsEditingImages] = useState(false);
+  const [editingDraft, setEditingDraft] = useState<OrderDraft>({
+    productTypeId: '',
+    flavorId: '',
+    cakeShapeId: '',
+    quantity: 1,
+    weight: 1,
+    specialInstructions: '',
+    customDecorations: '',
+    referenceImages: [],
+    customComplexityAdjustment: '',
+  });
   const [draft, setDraft] = useState<OrderDraft>({
     productTypeId: '',
     flavorId: '',
@@ -194,6 +218,7 @@ export default function OrderItemsTab({
     weight: 1,
     specialInstructions: '',
     customDecorations: '',
+    referenceImages: [],
     customComplexityAdjustment: '',
   });
 
@@ -216,7 +241,9 @@ export default function OrderItemsTab({
   const { data: flavorData } = useQuery<FlavorTypesResponse>({
     queryKey: ['flavorTypes-for-order'],
     queryFn: async () => {
-      const response = await fetch('/api/flavor-type');
+      const response = await fetch('/api/flavor-type', {
+        credentials: 'include',
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch flavors');
       }
@@ -229,7 +256,9 @@ export default function OrderItemsTab({
   const { data: combinationData } = useQuery<ProductFlavorResponse>({
     queryKey: ['productFlavorCombinations-for-order'],
     queryFn: async () => {
-      const response = await fetch('/api/product-flavor?isAvailable=true');
+      const response = await fetch('/api/product-flavor?isAvailable=true', {
+        credentials: 'include',
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch product-flavor combinations');
       }
@@ -391,6 +420,81 @@ export default function OrderItemsTab({
     }
   };
 
+  const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      if (!result) {
+        reject(new Error('Failed to read selected image'));
+        return;
+      }
+      resolve(result);
+    };
+    reader.onerror = () => {
+      reject(new Error('Failed to read selected image'));
+    };
+    reader.readAsDataURL(file);
+  });
+
+  const handleReferenceImagesChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    setReferenceImageError('');
+
+    if (!selectedFiles.length) {
+      return;
+    }
+
+    if (draft.referenceImages.length + selectedFiles.length > MAX_REFERENCE_IMAGES) {
+      setReferenceImageError(`You can upload a maximum of ${MAX_REFERENCE_IMAGES} reference images per item.`);
+      if (referenceImagesInputRef.current) {
+        referenceImagesInputRef.current.value = '';
+      }
+      return;
+    }
+
+    for (const file of selectedFiles) {
+      if (!ALLOWED_REFERENCE_IMAGE_TYPES.includes(file.type)) {
+        setReferenceImageError('Only PNG, JPG, JPEG, and WEBP images are allowed.');
+        if (referenceImagesInputRef.current) {
+          referenceImagesInputRef.current.value = '';
+        }
+        return;
+      }
+
+      if (file.size > MAX_REFERENCE_IMAGE_BYTES) {
+        setReferenceImageError('Each image must be 5MB or less.');
+        if (referenceImagesInputRef.current) {
+          referenceImagesInputRef.current.value = '';
+        }
+        return;
+      }
+    }
+
+    try {
+      setIsProcessingImages(true);
+      const uploadedImages = await Promise.all(selectedFiles.map((file) => fileToDataUrl(file)));
+      setDraft((prev) => ({
+        ...prev,
+        referenceImages: [...prev.referenceImages, ...uploadedImages],
+      }));
+    } catch {
+      setReferenceImageError('Failed to process image. Please try again.');
+    } finally {
+      setIsProcessingImages(false);
+      if (referenceImagesInputRef.current) {
+        referenceImagesInputRef.current.value = '';
+      }
+    }
+  };
+
+  const removeReferenceImage = (indexToRemove: number) => {
+    setReferenceImageError('');
+    setDraft((prev) => ({
+      ...prev,
+      referenceImages: prev.referenceImages.filter((_, index) => index !== indexToRemove),
+    }));
+  };
+
   const addItem = () => {
     if (!selectedProductType || !canAddValidItem) {
       return;
@@ -406,6 +510,7 @@ export default function OrderItemsTab({
       weight: isPerUnit ? undefined : draft.weight,
       specialInstructions: draft.specialInstructions,
       customDecorations: draft.customDecorations || undefined,
+      referenceImages: draft.referenceImages.length ? draft.referenceImages : undefined,
       customComplexityAdjustment: draft.customComplexityAdjustment ? (draft.customComplexityAdjustment as 'Low' | 'Medium' | 'High') : undefined,
       lineTotal: draftLineTotal,
     };
@@ -419,13 +524,137 @@ export default function OrderItemsTab({
       weight: 1,
       specialInstructions: '',
       customDecorations: '',
+      referenceImages: [],
       customComplexityAdjustment: '',
     });
+    setReferenceImageError('');
+    if (referenceImagesInputRef.current) {
+      referenceImagesInputRef.current.value = '';
+    }
   };
 
   const removeItem = (itemId: string) => {
     setItems(items.filter((item) => item.id !== itemId));
   };
+
+  const handleEditItem = (item: OrderItem, index: number) => {
+    const product = productTypes.find((p) => p._id === item.productTypeId);
+    setEditingItemId(item.id);
+    setEditingItemIndex(index);
+    setEditingDraft({
+      productTypeId: item.productTypeId,
+      flavorId: item.flavorId,
+      cakeShapeId: item.cakeShapeId || '',
+      quantity: item.quantity || 1,
+      weight: item.weight || 1,
+      specialInstructions: item.specialInstructions || '',
+      customDecorations: item.customDecorations || '',
+      referenceImages: item.referenceImages || [],
+      customComplexityAdjustment: (item.customComplexityAdjustment as 'Low' | 'Medium' | 'High' | '') || '',
+    });
+    setEditReferenceImageError('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItemId(null);
+    setEditingItemIndex(-1);
+    setEditingDraft({
+      productTypeId: '',
+      flavorId: '',
+      cakeShapeId: '',
+      quantity: 1,
+      weight: 1,
+      specialInstructions: '',
+      customDecorations: '',
+      referenceImages: [],
+      customComplexityAdjustment: '',
+    });
+    setEditReferenceImageError('');
+    if (editReferenceImagesInputRef.current) {
+      editReferenceImagesInputRef.current.value = '';
+    }
+  };
+
+  const handleEditReferenceImagesChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    setEditReferenceImageError('');
+
+    if (!selectedFiles.length) {
+      return;
+    }
+
+    if (editingDraft.referenceImages.length + selectedFiles.length > MAX_REFERENCE_IMAGES) {
+      setEditReferenceImageError(`You can upload a maximum of ${MAX_REFERENCE_IMAGES} reference images per item.`);
+      if (editReferenceImagesInputRef.current) {
+        editReferenceImagesInputRef.current.value = '';
+      }
+      return;
+    }
+
+    for (const file of selectedFiles) {
+      if (!ALLOWED_REFERENCE_IMAGE_TYPES.includes(file.type)) {
+        setEditReferenceImageError('Only PNG, JPG, JPEG, and WEBP images are allowed.');
+        if (editReferenceImagesInputRef.current) {
+          editReferenceImagesInputRef.current.value = '';
+        }
+        return;
+      }
+
+      if (file.size > MAX_REFERENCE_IMAGE_BYTES) {
+        setEditReferenceImageError('Each image must be 5MB or less.');
+        if (editReferenceImagesInputRef.current) {
+          editReferenceImagesInputRef.current.value = '';
+        }
+        return;
+      }
+    }
+
+    try {
+      setIsEditingImages(true);
+      const uploadedImages = await Promise.all(selectedFiles.map((file) => fileToDataUrl(file)));
+      setEditingDraft((prev) => ({
+        ...prev,
+        referenceImages: [...prev.referenceImages, ...uploadedImages],
+      }));
+    } catch {
+      setEditReferenceImageError('Failed to process image. Please try again.');
+    } finally {
+      setIsEditingImages(false);
+      if (editReferenceImagesInputRef.current) {
+        editReferenceImagesInputRef.current.value = '';
+      }
+    }
+  };
+
+  const removeEditingReferenceImage = (indexToRemove: number) => {
+    setEditReferenceImageError('');
+    setEditingDraft((prev) => ({
+      ...prev,
+      referenceImages: prev.referenceImages.filter((_, index) => index !== indexToRemove),
+    }));
+  };
+
+  const handleSaveEditedItem = () => {
+    if (editingItemIndex < 0 || editingItemIndex >= items.length) {
+      return;
+    }
+
+    const updatedItem: OrderItem = {
+      ...items[editingItemIndex],
+      specialInstructions: editingDraft.specialInstructions,
+      customDecorations: editingDraft.customDecorations || undefined,
+      referenceImages: editingDraft.referenceImages.length ? editingDraft.referenceImages : undefined,
+      customComplexityAdjustment: editingDraft.customComplexityAdjustment ? (editingDraft.customComplexityAdjustment as 'Low' | 'Medium' | 'High') : undefined,
+      quantity: editingDraft.quantity,
+      weight: editingDraft.weight,
+    };
+
+    const updatedItems = [...items];
+    updatedItems[editingItemIndex] = updatedItem;
+    setItems(updatedItems);
+    handleCancelEdit();
+  };
+
 
   const getItemConstraintError = (item: OrderItem, index: number): string => {
     const product = productTypes.find((p) => p._id === item.productTypeId);
@@ -502,6 +731,7 @@ export default function OrderItemsTab({
           weight: item.weight,
           specialInstructions: item.specialInstructions || '',
           customDecorations: item.customDecorations || '',
+          referenceImages: item.referenceImages || [],
           customComplexityAdjustment: item.customComplexityAdjustment,
         })),
         notes: orderNotes,
@@ -510,6 +740,7 @@ export default function OrderItemsTab({
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -741,6 +972,44 @@ export default function OrderItemsTab({
               />
             </div>
 
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Reference Images (optional)</label>
+              <input
+                ref={referenceImagesInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                multiple
+                onChange={handleReferenceImagesChange}
+                disabled={isProcessingImages || draft.referenceImages.length >= MAX_REFERENCE_IMAGES}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
+              />
+              <p className="text-xs text-gray-600 mt-1">
+                Upload up to {MAX_REFERENCE_IMAGES} images, 5MB max each.
+              </p>
+              {referenceImageError && (
+                <p className="text-sm text-red-600 mt-1">{referenceImageError}</p>
+              )}
+              {isProcessingImages && (
+                <p className="text-xs text-blue-700 mt-1">Processing image...</p>
+              )}
+              {draft.referenceImages.length > 0 && (
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {draft.referenceImages.map((imageUrl, index) => (
+                    <div key={`${imageUrl.slice(0, 40)}-${index}`} className="relative border border-gray-200 rounded-md overflow-hidden bg-white">
+                      <img src={imageUrl} alt={`Reference ${index + 1}`} className="h-20 w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeReferenceImage(index)}
+                        className="absolute top-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {draft.customDecorations && (
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-2">
@@ -810,6 +1079,18 @@ export default function OrderItemsTab({
                     {item.customDecorations && (
                       <p className="text-blue-600 text-xs mt-1 font-medium">🎨 Decoration: {item.customDecorations}</p>
                     )}
+                    {item.referenceImages && item.referenceImages.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {item.referenceImages.map((imageUrl, imageIndex) => (
+                          <img
+                            key={`${item.id}-img-${imageIndex}`}
+                            src={imageUrl}
+                            alt={`Order item reference ${imageIndex + 1}`}
+                            className="h-12 w-12 rounded border border-gray-200 object-cover"
+                          />
+                        ))}
+                      </div>
+                    )}
 
                     {/* Effective prep time badge (custom override or base) */}
                     {
@@ -837,8 +1118,15 @@ export default function OrderItemsTab({
                     <p className="font-semibold text-gray-800">{(item.lineTotal || 0).toFixed(2)}</p>
                     <button
                       type="button"
+                      onClick={() => handleEditItem(item, index)}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => removeItem(item.id)}
-                      className="text-sm text-red-600"
+                      className="text-sm text-red-600 hover:text-red-700 font-medium"
                     >
                       Remove
                     </button>
@@ -909,6 +1197,184 @@ export default function OrderItemsTab({
           {isSubmittingOrder ? 'Creating Order...' : 'Create Order'}
         </button>
       </div>
+
+      {/* Edit Item Modal */}
+      {editingItemId && editingItemIndex >= 0 && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full my-8">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-800">Edit Order Item</h2>
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Current Item Information (Read-Only) */}
+              {editingItemIndex >= 0 && items[editingItemIndex] && (() => {
+                const item = items[editingItemIndex];
+                const product = productTypes.find((p) => p._id === item.productTypeId);
+                const flavor = flavors.find((f) => f._id === item.flavorId);
+                const shape = cakeShapes.find((s) => s._id === item.cakeShapeId);
+
+                return (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2">
+                    <h3 className="font-semibold text-gray-800 text-sm">Item Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase">Product</p>
+                        <p className="text-gray-800 font-medium">{product?.name || 'Unknown'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase">Flavor</p>
+                        <p className="text-gray-800 font-medium">{flavor?.name || 'N/A'}</p>
+                      </div>
+                      {shape && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 uppercase">Shape</p>
+                          <p className="text-gray-800 font-medium">{shape.name}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase">Qty/Weight</p>
+                        <p className="text-gray-800 font-medium">
+                          {item.quantity ? `${item.quantity} unit${item.quantity > 1 ? 's' : ''}` : `${item.weight || 0}kg`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="border-t border-gray-200 pt-3 mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase">Base Price</p>
+                        <p className="text-gray-800 font-semibold">€{item.lineTotal ? ((item.lineTotal || 0) - ((item.flavorExtraPrice || 0))).toFixed(2) : '0.00'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase">Flavor Extra</p>
+                        <p className="text-gray-800 font-semibold">€{(item.flavorExtraPrice || 0).toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase">Line Total</p>
+                        <p className="text-gray-800 font-bold text-base">€{(item.lineTotal || 0).toFixed(2)}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Special Instructions */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Special Instructions</label>
+                <input
+                  type="text"
+                  value={editingDraft.specialInstructions}
+                  onChange={(e) => setEditingDraft({ ...editingDraft, specialInstructions: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  placeholder="Optional"
+                />
+              </div>
+
+              {/* Custom Decorations */}
+              <div className="border border-blue-200 bg-blue-50 rounded-lg p-4 space-y-3">
+                <h4 className="font-medium text-blue-900 text-sm">✨ Custom Decorations (Optional)</h4>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Describe custom decorations</label>
+                  <input
+                    type="text"
+                    value={editingDraft.customDecorations}
+                    onChange={(e) => setEditingDraft({ ...editingDraft, customDecorations: e.target.value })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                    placeholder="e.g., gold leaf, custom piping, intricate design..."
+                  />
+                </div>
+
+                {editingDraft.customDecorations && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-2">
+                      Complexity level with decoration:
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['Low', 'Medium', 'High'] as const).map((level) => (
+                        <button
+                          key={level}
+                          type="button"
+                          onClick={() => setEditingDraft({ ...editingDraft, customComplexityAdjustment: level })}
+                          className={`py-2 px-3 rounded-md text-sm font-medium transition-all ${
+                            editingDraft.customComplexityAdjustment === level
+                              ? 'bg-blue-600 text-white border-2 border-blue-700'
+                              : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-blue-400'
+                          }`}
+                        >
+                          {level}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Reference Images */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Reference Images (optional)</label>
+                <input
+                  ref={editReferenceImagesInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  multiple
+                  onChange={handleEditReferenceImagesChange}
+                  disabled={isEditingImages || editingDraft.referenceImages.length >= MAX_REFERENCE_IMAGES}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
+                />
+                <p className="text-xs text-gray-600 mt-1">
+                  Upload up to {MAX_REFERENCE_IMAGES} images, 5MB max each.
+                </p>
+                {editReferenceImageError && (
+                  <p className="text-sm text-red-600 mt-1">{editReferenceImageError}</p>
+                )}
+                {isEditingImages && (
+                  <p className="text-xs text-blue-700 mt-1">Processing image...</p>
+                )}
+                {editingDraft.referenceImages.length > 0 && (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {editingDraft.referenceImages.map((imageUrl, imageIndex) => (
+                      <div key={`edit-img-${imageIndex}`} className="relative border border-gray-200 rounded-md overflow-hidden bg-white">
+                        <img src={imageUrl} alt={`Reference ${imageIndex + 1}`} className="h-20 w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeEditingReferenceImage(imageIndex)}
+                          className="absolute top-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white hover:bg-black"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md text-sm hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEditedItem}
+                className="px-4 py-2 bg-gray-800 text-white rounded-md text-sm hover:bg-gray-900"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

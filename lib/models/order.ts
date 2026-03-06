@@ -47,6 +47,14 @@ const OrderItemSchema = new Schema(
     lineTotal: { type: Number, required: true, min: 0 },
     specialInstructions: { type: String, default: '' },
     customDecorations: { type: String, default: '' },
+    referenceImages: {
+      type: [{ type: String, trim: true }],
+      default: [],
+      validate: {
+        validator: (images: string[]) => Array.isArray(images) && images.length <= 3,
+        message: 'A maximum of 3 reference images is allowed per order item',
+      },
+    },
     customComplexityAdjustment: {
       type: String,
       enum: ['Low', 'Medium', 'High'],
@@ -107,8 +115,23 @@ const OrderSchema = new Schema(
       index: true,
     },
     startedAt: { type: Date },
+    startedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'Admin',
+    },
+    startedByName: { type: String },
     readyAt: { type: Date },
+    readyBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'Admin',
+    },
+    readyByName: { type: String },
     completedAt: { type: Date },
+    completedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'Admin',
+    },
+    completedByName: { type: String },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: 'Admin',

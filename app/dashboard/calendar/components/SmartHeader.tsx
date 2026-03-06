@@ -25,6 +25,33 @@ type SmartHeaderProps = {
 };
 
 export function SmartHeader({ currentTime, todayStats, tomorrowAlerts }: SmartHeaderProps) {
+  // Determine workload card colors based on level
+  const getWorkloadColors = (level: string) => {
+    switch (level) {
+      case 'Light':
+        return 'bg-green-100 border-green-300';
+      case 'Normal':
+        return 'bg-amber-100 border-amber-300';
+      case 'Heavy':
+        return 'bg-red-100 border-red-300';
+      default:
+        return 'bg-gray-100 border-gray-200';
+    }
+  };
+
+  const getWorkloadTextColor = (level: string) => {
+    switch (level) {
+      case 'Light':
+        return 'text-green-900';
+      case 'Normal':
+        return 'text-amber-900';
+      case 'Heavy':
+        return 'text-red-900';
+      default:
+        return 'text-gray-700';
+    }
+  };
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 text-gray-900">
       <div className="flex items-center justify-between">
@@ -57,9 +84,9 @@ export function SmartHeader({ currentTime, todayStats, tomorrowAlerts }: SmartHe
           <div className="text-xs text-gray-700">Total Prep Time</div>
         </div>
 
-        <div className="bg-gray-100 border border-gray-200 rounded-lg p-3">
-          <div className="text-2xl font-bold">{todayStats.workloadLevel}</div>
-          <div className="text-xs text-gray-700">Workload ({Math.round(todayStats.workloadPercentage)}%)</div>
+        <div className={`border rounded-lg p-3 ${getWorkloadColors(todayStats.workloadLevel)}`}>
+          <div className={`text-2xl font-bold ${getWorkloadTextColor(todayStats.workloadLevel)}`}>{todayStats.workloadLevel}</div>
+          <div className={`text-xs ${getWorkloadTextColor(todayStats.workloadLevel)}`}>{Math.round(todayStats.workloadPercentage)}% used ({todayStats.totalPrepTime}h of 8h)</div>
         </div>
       </div>
 

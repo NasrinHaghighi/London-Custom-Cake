@@ -329,6 +329,9 @@ export async function POST(request: NextRequest) {
         lineTotal,
         specialInstructions: item.specialInstructions || '',
         customDecorations: item.customDecorations || '',
+        referenceImages: Array.isArray(item.referenceImages)
+          ? Array.from(new Set(item.referenceImages.map((imageUrl) => imageUrl.trim()))).filter(Boolean)
+          : [],
         customComplexityAdjustment: item.customComplexityAdjustment || undefined,
       };
     });

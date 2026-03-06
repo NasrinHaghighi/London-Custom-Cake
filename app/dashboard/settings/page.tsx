@@ -15,14 +15,14 @@ import AdminList from '@/components/Setting/AdminList';
 
 // Fetch all admins
 const fetchAdmins = async () => {
-  const res = await fetch('/api/admin/list');
+  const res = await fetch('/api/admin/list', { credentials: 'include' });
   if (!res.ok) throw new Error('Failed to fetch admins');
   return res.json();
 };
 
 // Delete admin API call
 const deleteAdmin = async (id: string) => {
-  const res = await fetch(`/api/admin/${id}/delete`, { method: 'DELETE' });
+  const res = await fetch(`/api/admin/${id}/delete`, { method: 'DELETE', credentials: 'include' });
   if (!res.ok) throw new Error('Failed to delete admin');
   return res.json();
 };
@@ -41,6 +41,7 @@ export default function Settings() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(data),
       });
       if (!response.ok) {

@@ -33,7 +33,7 @@ export default function MenuManagementPage() {
   const { data: combinationsData } = useQuery({
     queryKey: ['product-flavors'],
     queryFn: async () => {
-      const res = await fetch('/api/product-flavor');
+      const res = await fetch('/api/product-flavor', { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       return data.combinations;

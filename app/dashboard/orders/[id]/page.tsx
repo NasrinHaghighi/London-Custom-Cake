@@ -20,6 +20,7 @@ type OrderItem = {
   flavorExtraPrice: number;
   lineTotal: number;
   specialInstructions?: string;
+  referenceImages?: string[];
   customComplexityAdjustment?: 'Low' | 'Medium' | 'High';
 };
 
@@ -128,6 +129,7 @@ export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
   const orderId = params?.id;
   const [selectedProofImage, setSelectedProofImage] = useState<string | null>(null);
+  const [selectedReferenceImage, setSelectedReferenceImage] = useState<string | null>(null);
 
   const { data: orderData, isLoading: isOrderLoading } = useQuery<OrderDetailResponse>({
     queryKey: ['order-detail', orderId],
@@ -285,6 +287,19 @@ export default function OrderDetailPage() {
                     {item.customDecorations && (
                       <div className="text-blue-600 text-xs mt-1 font-medium">🎨 Decoration: {item.customDecorations}</div>
                     )}
+                    {item.referenceImages && item.referenceImages.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {item.referenceImages.map((imageUrl, imageIndex) => (
+                          <img
+                            key={`${order._id}-item-${index}-img-${imageIndex}`}
+                            src={imageUrl}
+                            alt={`Reference image ${imageIndex + 1}`}
+                            onClick={() => setSelectedReferenceImage(imageUrl)}
+                            className="h-12 w-12 rounded border border-gray-200 object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                          />
+                        ))}
+                      </div>
+                    )}
                     {item.customComplexityAdjustment ? (
                       <div className="text-xs mt-1">
                         <span className={`px-2 py-0.5 rounded-full font-medium ${getComplexityClass(item.customComplexityAdjustment)}`}>
@@ -438,6 +453,50 @@ export default function OrderDetailPage() {
               >
                 Open in New Tab
               </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reference Image Lightbox Modal */}
+      {selectedReferenceImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-4xl max-h-[90vh] overflow-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800">Reference Image</h2>
+              <button
+                type="button"
+                onClick={() => setSelectedReferenceImage(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-6 flex items-center justify-center bg-gray-50">
+              <img
+                src={selectedReferenceImage}
+                alt="Reference image"
+                className="max-w-full max-h-[70vh] rounded-lg shadow-md object-contain"
+              />
+            </div>
+
+            <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-end gap-3">
+              <a
+                href={selectedReferenceImage}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
+              >
+                Open in New Tab
+              </a>
+              <button
+                type="button"
+                onClick={() => setSelectedReferenceImage(null)}
+                className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 text-sm font-medium"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
