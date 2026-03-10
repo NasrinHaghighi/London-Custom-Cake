@@ -18,6 +18,39 @@ export default function ProductTypeCard({ productType, onEdit, onDelete, isDelet
     .map((id) => cakeShapes.find((shape) => shape._id === id))
     .filter(Boolean) as CakeShape[];
 
+  const hasTimingData = productType.measurement_type !== undefined
+    || productType.bake_time_minutes !== undefined
+    || productType.fill_time_minutes !== undefined
+    || productType.decoration_time_minutes !== undefined
+    || productType.rest_time_minutes !== undefined;
+
+  const formatDuration = (totalMinutes: number) => {
+    const rounded = Math.max(0, Math.round(totalMinutes));
+    const hours = Math.floor(rounded / 60);
+    const minutes = rounded % 60;
+
+    if (hours === 0) {
+      return `${minutes}m`;
+    }
+
+    if (minutes === 0) {
+      return `${hours}h`;
+    }
+
+    return `${hours}h ${minutes}m`;
+  };
+
+  const bakeMinutes = productType.bake_time_minutes ?? 0;
+  const fillMinutes = productType.fill_time_minutes ?? 0;
+  const decorationMinutes = productType.decoration_time_minutes ?? 0;
+  const restMinutes = productType.rest_time_minutes ?? 0;
+  const baseTotalMinutes = bakeMinutes + fillMinutes + decorationMinutes + restMinutes;
+
+  const measurementType = productType.measurement_type || 'quantity';
+  const baseLabel = measurementType === 'weight'
+    ? `${productType.base_weight ?? productType.minWeight ?? '-'}kg`
+    : `${productType.base_quantity ?? productType.minQuantity ?? '-'} unit`;
+
   return (
     <div className="border-2 border-gray-200 rounded-lg p-4 hover:border-gray-400 transition-all">
       <div className="flex justify-between items-start mb-2">
@@ -43,11 +76,6 @@ export default function ProductTypeCard({ productType, onEdit, onDelete, isDelet
 
       {productType.description && (
         <p className="text-sm text-gray-600 mb-2">{productType.description}</p>
-      )}
-
-      {/* Show preparation complexity */}
-      {productType.basePrepTime && (
-        <p className="text-sm text-indigo-600 mb-2">Prep: {productType.basePrepTime}</p>
       )}
 
       <div className="text-sm space-y-1">
@@ -79,6 +107,30 @@ export default function ProductTypeCard({ productType, onEdit, onDelete, isDelet
           </>
         )}
       </div>
+
+      {hasTimingData && (
+        <div className="mt-3 pt-3 border-t border-gray-200 space-y-1">
+          <p className="text-xs font-semibold text-gray-700">Production Timing</p>
+          <p className="text-xs text-gray-600">
+            Basis: <span className="font-medium capitalize">{measurementType}</span> ({baseLabel})
+          </p>
+          <p className="text-xs text-gray-600">
+            Bake: {bakeMinutes}m {productType.scale_bake === false ? '(constant)' : '(scaled)'}
+          </p>
+          <p className="text-xs text-gray-600">
+            Fill: {fillMinutes}m {productType.scale_fill === false ? '(constant)' : '(scaled)'}
+          </p>
+          <p className="text-xs text-gray-600">
+            Decoration: {decorationMinutes}m {productType.scale_decoration === false ? '(constant)' : '(scaled)'}
+          </p>
+          <p className="text-xs text-gray-600">
+            Rest: {restMinutes}m {productType.scale_rest === true ? '(scaled)' : '(constant)'}
+          </p>
+          <p className="text-xs font-semibold text-gray-800">
+            Base Total: {formatDuration(baseTotalMinutes)}
+          </p>
+        </div>
+      )}
 
       {/* Display Cake Shapes */}
       {selectedShapes.length > 0 && (

@@ -7,10 +7,13 @@ import { z } from 'zod';
 import Order from '@/lib/models/order';
 import Customer from '@/lib/models/customer';
 import ProductType from '@/lib/models/productTypeSchema';
+import { calculateProductionTime } from '@/lib/models/productTypeSchema';
 import FlavorType from '@/lib/models/flavorTypeSchema';
 import CakeShape from '@/lib/models/cakeShapeSchema';
 import ProductTypeFlavor from '@/lib/models/productTypeFlavorSchema';
 import { createOrderSchema, orderQuerySchema } from '@/lib/validators/order';
+import { classifyComplexityFromMinutes } from '@/lib/complexity';
+import { getComplexityThresholdSettings } from '@/lib/services/complexityThresholdSettings';
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
@@ -46,24 +49,48 @@ async function getUniqueOrderNumber(): Promise<string> {
   return `ORD-${Date.now()}`;
 }
 
-/**
- * Determine overall complexity for an order based on its items.
- *  - any item with "High" pushes result to High
- *  - otherwise any "Medium" moves it to Medium
- *  - defaults to Medium if no adjustments present
- */
-function deriveOrderComplexity(order: any): 'Low' | 'Medium' | 'High' {
+function getOrderProductionMinutes(order: any): number | undefined {
+  if (typeof order.totalProductionTimeMinutes === 'number' && order.totalProductionTimeMinutes > 0) {
+    return order.totalProductionTimeMinutes;
+  }
+
+  if (!Array.isArray(order.items)) {
+    return undefined;
+  }
+
+  const total = order.items.reduce((sum: number, item: any) => {
+    const itemMinutes = typeof item.estimatedProductionTimeMinutes === 'number'
+      ? item.estimatedProductionTimeMinutes
+      : 0;
+    return sum + itemMinutes;
+  }, 0);
+
+  return total > 0 ? total : undefined;
+}
+
+function deriveOrderComplexityWithThresholds(
+  order: any,
+  thresholds: { lowMaxMinutes: number; mediumMaxMinutes: number }
+): 'Low' | 'Medium' | 'High' {
+  const estimatedMinutes = getOrderProductionMinutes(order);
+  const classifiedFromMinutes = classifyComplexityFromMinutes(estimatedMinutes, thresholds);
+  if (classifiedFromMinutes) {
+    return classifiedFromMinutes;
+  }
+
   const levels = ['Low', 'Medium', 'High'] as const;
-  let highestIndex = 1; // default to Medium when nothing is specified
+  let highestIndex = 1;
 
   if (Array.isArray(order.items)) {
     for (const item of order.items) {
-      const lvl: 'Low' | 'Medium' | 'High' =
-        (item.customComplexityAdjustment as any) || 'Medium';
-      const idx = levels.indexOf(lvl);
-      if (idx > highestIndex) {
-        highestIndex = idx;
-        if (highestIndex === 2) break; // already at highest possible
+      const level: 'Low' | 'Medium' | 'High' =
+        (item.customComplexityAdjustment as 'Low' | 'Medium' | 'High') || 'Medium';
+      const index = levels.indexOf(level);
+      if (index > highestIndex) {
+        highestIndex = index;
+        if (highestIndex === 2) {
+          break;
+        }
       }
     }
   }
@@ -159,11 +186,17 @@ export async function GET(request: NextRequest) {
       Order.countDocuments(filter),
     ]);
 
+    const thresholds = await getComplexityThresholdSettings();
+
     // attach a derived complexity badge to each order item for the listing
-    const ordersWithComplexity = orders.map((o: any) => ({
-      ...o,
-      complexity: deriveOrderComplexity(o),
-    }));
+    const ordersWithComplexity = orders.map((order: any) => {
+      const estimatedMinutes = getOrderProductionMinutes(order);
+      return {
+        ...order,
+        totalProductionTimeMinutes: estimatedMinutes,
+        complexity: deriveOrderComplexityWithThresholds(order, thresholds),
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -313,6 +346,10 @@ export async function POST(request: NextRequest) {
       }
 
       const lineTotal = round2(unitBasePrice + flavorExtraPrice);
+      const estimatedProductionTimeMinutes = calculateProductionTime(product, {
+        order_weight: item.weight,
+        order_quantity: item.quantity,
+      });
 
       return {
         productTypeId: new mongoose.Types.ObjectId(item.productTypeId),
@@ -333,10 +370,15 @@ export async function POST(request: NextRequest) {
           ? Array.from(new Set(item.referenceImages.map((imageUrl) => imageUrl.trim()))).filter(Boolean)
           : [],
         customComplexityAdjustment: item.customComplexityAdjustment || undefined,
+        estimatedProductionTimeMinutes,
       };
     });
 
     const subTotal = round2(calculatedItems.reduce((sum, item) => sum + item.lineTotal, 0));
+    const totalProductionTimeMinutes = calculatedItems.reduce(
+      (sum, item) => sum + (item.estimatedProductionTimeMinutes || 0),
+      0
+    );
     const hasPreviousOrder = await Order.exists({ customerId: new mongoose.Types.ObjectId(validated.customerId) });
     const discountRate = hasPreviousOrder ? 0.1 : 0;
     const discount = round2(subTotal * discountRate);
@@ -379,6 +421,7 @@ export async function POST(request: NextRequest) {
       subTotal,
       discount,
       totalAmount,
+      totalProductionTimeMinutes,
       paidAmount,
       paymentStatus,
       status: 'pending',

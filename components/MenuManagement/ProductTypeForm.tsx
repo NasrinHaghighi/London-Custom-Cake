@@ -1,8 +1,15 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { ProductTypeForm as ProductTypeFormData } from './ProductTypesTab';
 import { CakeShape } from '@/lib/api/cakeShapes';
 import Checkbox from '../ui/Checkbox';
+import { fetchComplexityThresholdSettings } from '@/lib/api/settings';
+import {
+  DEFAULT_COMPLEXITY_THRESHOLDS,
+  classifyComplexityFromMinutes,
+  getComplexityRanges,
+} from '@/lib/complexity';
 
 interface ProductTypeFormProps {
   form: ProductTypeFormData;
@@ -15,6 +22,58 @@ interface ProductTypeFormProps {
 export default function ProductTypeForm({ form, setForm, onSubmit, isPending, cakeShapes = [] }: ProductTypeFormProps) {
   const hasShapes = cakeShapes && cakeShapes.length > 0;
   const isShapeCheckboxDisabled = !hasShapes;
+  const effectivePricingMethod = form.pricingMethod === 'perkg' ? 'perkg' : 'perunit';
+  const derivedMeasurementType = effectivePricingMethod === 'perkg' ? 'weight' : 'quantity';
+  const scaleLabel = derivedMeasurementType === 'weight' ? 'Scale with weight' : 'Scale with quantity';
+
+  const toOptionalFloat = (value: string) => {
+    if (!value.trim()) return undefined;
+    const parsed = parseFloat(value);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  };
+
+  const toOptionalInt = (value: string) => {
+    if (!value.trim()) return undefined;
+    const parsed = parseInt(value, 10);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  };
+
+  const toNonNegativeInt = (value: string) => {
+    const parsed = parseInt(value, 10);
+    if (Number.isNaN(parsed) || parsed < 0) {
+      return 0;
+    }
+
+    return parsed;
+  };
+
+  const baseTotalMinutes =
+    (form.bake_time_minutes || 0)
+    + (form.fill_time_minutes || 0)
+    + (form.decoration_time_minutes || 0)
+    + (form.rest_time_minutes || 0);
+
+  const { data: thresholdSettings } = useQuery({
+    queryKey: ['complexity-threshold-settings'],
+    queryFn: fetchComplexityThresholdSettings,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const activeThresholds = thresholdSettings || DEFAULT_COMPLEXITY_THRESHOLDS;
+  const baseComplexity = classifyComplexityFromMinutes(baseTotalMinutes, activeThresholds);
+  const baseComplexityLabel = baseComplexity || 'Not set';
+  const complexityClass =
+    baseComplexityLabel === 'High'
+      ? 'bg-red-100 text-red-800'
+      : baseComplexityLabel === 'Low'
+        ? 'bg-green-100 text-green-800'
+        : baseComplexityLabel === 'Medium'
+          ? 'bg-yellow-100 text-yellow-800'
+          : 'bg-gray-100 text-gray-700';
+  const complexityRanges = getComplexityRanges(activeThresholds).map((item) => ({
+    ...item,
+    isActive: item.level === baseComplexityLabel,
+  }));
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -34,29 +93,30 @@ export default function ProductTypeForm({ form, setForm, onSubmit, isPending, ca
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Pricing Method *</label>
             <select
-              value={form.pricingMethod}
-              onChange={(e) => setForm({ ...form, pricingMethod: e.target.value as 'perunit' | 'perkg' })}
+              value={effectivePricingMethod}
+              onChange={(e) => {
+                const pricingMethod = e.target.value as 'perunit' | 'perkg';
+                const syncedWeight = form.minWeight ?? form.base_weight ?? 1;
+                setForm({
+                  ...form,
+                  pricingMethod,
+                  measurement_type: pricingMethod === 'perkg' ? 'weight' : 'quantity',
+                  minQuantity: pricingMethod === 'perunit' ? (form.base_quantity ?? form.minQuantity ?? 1) : form.minQuantity,
+                  minWeight: pricingMethod === 'perkg' ? syncedWeight : form.minWeight,
+                  base_weight: pricingMethod === 'perkg' ? syncedWeight : undefined,
+                  unitPrice: pricingMethod === 'perunit' ? form.unitPrice : undefined,
+                  pricePerKg: pricingMethod === 'perkg' ? form.pricePerKg : undefined,
+                });
+              }}
               className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
             >
               <option value="perunit">Per Unit</option>
               <option value="perkg">Per Kg</option>
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Base Prep Time *</label>
-            <select
-              value={form.basePrepTime || 'Medium'}
-              onChange={(e) => setForm({ ...form, basePrepTime: e.target.value as 'Low' | 'Medium' | 'High' })}
-              className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
-            >
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-            </select>
-          </div>
         </div>
 
-        {form.pricingMethod === 'perunit' && (
+        {effectivePricingMethod === 'perunit' && (
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Unit Price *</label>
@@ -64,7 +124,7 @@ export default function ProductTypeForm({ form, setForm, onSubmit, isPending, ca
                 type="number"
                 step="0.01"
                 value={form.unitPrice || ''}
-                onChange={(e) => setForm({ ...form, unitPrice: parseFloat(e.target.value) })}
+                onChange={(e) => setForm({ ...form, unitPrice: toOptionalFloat(e.target.value) })}
                 className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
                 required
               />
@@ -73,8 +133,15 @@ export default function ProductTypeForm({ form, setForm, onSubmit, isPending, ca
               <label className="block text-sm font-semibold text-gray-700 mb-2">Min Quantity</label>
               <input
                 type="number"
-                value={form.minQuantity || ''}
-                onChange={(e) => setForm({ ...form, minQuantity: parseInt(e.target.value) })}
+                value={derivedMeasurementType === 'quantity' ? (form.base_quantity || '') : (form.minQuantity || '')}
+                onChange={(e) => {
+                  const minQuantity = toOptionalInt(e.target.value);
+                  setForm({
+                    ...form,
+                    minQuantity,
+                    base_quantity: derivedMeasurementType === 'quantity' ? minQuantity : form.base_quantity,
+                  });
+                }}
                 className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
               />
             </div>
@@ -83,14 +150,14 @@ export default function ProductTypeForm({ form, setForm, onSubmit, isPending, ca
               <input
                 type="number"
                 value={form.maxQuantity || ''}
-                onChange={(e) => setForm({ ...form, maxQuantity: parseInt(e.target.value) })}
+                  onChange={(e) => setForm({ ...form, maxQuantity: toOptionalInt(e.target.value) })}
                 className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
               />
             </div>
           </div>
         )}
 
-        {form.pricingMethod === 'perkg' && (
+        {effectivePricingMethod === 'perkg' && (
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Price Per Kg *</label>
@@ -98,7 +165,7 @@ export default function ProductTypeForm({ form, setForm, onSubmit, isPending, ca
                 type="number"
                 step="0.01"
                 value={form.pricePerKg || ''}
-                onChange={(e) => setForm({ ...form, pricePerKg: parseFloat(e.target.value) })}
+                onChange={(e) => setForm({ ...form, pricePerKg: toOptionalFloat(e.target.value) })}
                 className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
                 required
               />
@@ -109,8 +176,16 @@ export default function ProductTypeForm({ form, setForm, onSubmit, isPending, ca
                 type="number"
                 step="0.01"
                 value={form.minWeight || ''}
-                onChange={(e) => setForm({ ...form, minWeight: parseFloat(e.target.value) })}
+                onChange={(e) => {
+                  const minWeight = toOptionalFloat(e.target.value);
+                  setForm({
+                    ...form,
+                    minWeight,
+                    base_weight: derivedMeasurementType === 'weight' ? minWeight : form.base_weight,
+                  });
+                }}
                 className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
+                required
               />
             </div>
             <div>
@@ -119,12 +194,187 @@ export default function ProductTypeForm({ form, setForm, onSubmit, isPending, ca
                 type="number"
                 step="0.01"
                 value={form.maxWeight || ''}
-                onChange={(e) => setForm({ ...form, maxWeight: parseFloat(e.target.value) })}
+                onChange={(e) => setForm({ ...form, maxWeight: toOptionalFloat(e.target.value) })}
                 className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
               />
             </div>
           </div>
         )}
+
+        <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+          <h4 className="text-sm font-semibold text-gray-800">Production Time Measurement Basis</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Time Measurement Type (auto from pricing method)</label>
+              <input
+                type="text"
+                value={derivedMeasurementType === 'weight' ? 'Weight' : 'Quantity'}
+                readOnly
+                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg bg-gray-50 text-gray-700"
+              />
+            </div>
+
+            {derivedMeasurementType === 'weight' ? (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Base Weight (kg) (auto from Min Weight)</label>
+                <input
+                  type="text"
+                  value={form.minWeight ?? form.base_weight ?? ''}
+                  readOnly
+                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg bg-gray-50 text-gray-700"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Base Quantity *</label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={form.base_quantity || ''}
+                  onChange={(e) => {
+                    const base_quantity = toOptionalInt(e.target.value);
+                    setForm({
+                      ...form,
+                      base_quantity,
+                      minQuantity: base_quantity,
+                    });
+                  }}
+                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
+                  required
+                />
+              </div>
+            )}
+          </div>
+
+          <p className="text-xs text-gray-600">
+            {derivedMeasurementType === 'weight'
+              ? 'Times below are defined for the minimum weight (Base Weight). Scalable stages will adjust for order weight.'
+              : 'Times below are defined for the minimum quantity (Base Quantity). Scalable stages will adjust for order quantity.'}
+          </p>
+        </div>
+
+        <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+          <h4 className="text-sm font-semibold text-gray-800">Production Time (minutes)</h4>
+
+          <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+            <p className="text-xs text-gray-600">Base total time: <span className="font-semibold text-gray-800">{baseTotalMinutes}m</span></p>
+            <p className="text-xs text-gray-700 mt-1">
+              Suggested complexity:{' '}
+              <span className={`inline-block px-2 py-0.5 rounded-full font-semibold ${complexityClass}`}>
+                {baseComplexityLabel}
+              </span>
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              This is guidance based on base production minutes and helps standardize planning.
+            </p>
+
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-2">
+              {complexityRanges.map((item) => (
+                <div
+                  key={item.level}
+                  className={`rounded-md border px-2 py-2 text-xs ${item.isActive ? 'border-black bg-white text-gray-900' : 'border-gray-200 bg-gray-50 text-gray-600'}`}
+                >
+                  <p className="font-semibold">{item.level}</p>
+                  <p>{item.range}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-500 mt-1">Current complexity range is highlighted.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Bake Time</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.bake_time_minutes}
+                onChange={(e) => setForm({ ...form, bake_time_minutes: toNonNegativeInt(e.target.value) })}
+                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-700 md:col-span-2">
+              <input
+                type="checkbox"
+                checked={form.scale_bake}
+                onChange={(e) => setForm({ ...form, scale_bake: e.target.checked })}
+                className="w-4 h-4 rounded accent-black focus:ring-black"
+              />
+              {scaleLabel}
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Fill Time</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.fill_time_minutes}
+                onChange={(e) => setForm({ ...form, fill_time_minutes: toNonNegativeInt(e.target.value) })}
+                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-700 md:col-span-2">
+              <input
+                type="checkbox"
+                checked={form.scale_fill}
+                onChange={(e) => setForm({ ...form, scale_fill: e.target.checked })}
+                className="w-4 h-4 rounded accent-black focus:ring-black"
+              />
+              {scaleLabel}
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Decoration Time</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.decoration_time_minutes}
+                onChange={(e) => setForm({ ...form, decoration_time_minutes: toNonNegativeInt(e.target.value) })}
+                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-700 md:col-span-2">
+              <input
+                type="checkbox"
+                checked={form.scale_decoration}
+                onChange={(e) => setForm({ ...form, scale_decoration: e.target.checked })}
+                className="w-4 h-4 rounded accent-black focus:ring-black"
+              />
+              {scaleLabel}
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Rest Time</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.rest_time_minutes}
+                onChange={(e) => setForm({ ...form, rest_time_minutes: toNonNegativeInt(e.target.value), scale_rest: false })}
+                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-400 md:col-span-2">
+              <input
+                type="checkbox"
+                checked={false}
+                disabled
+                className="w-4 h-4 rounded accent-black focus:ring-black"
+              />
+              Constant stage (not scaled)
+            </label>
+          </div>
+        </div>
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
@@ -176,7 +426,7 @@ export default function ProductTypeForm({ form, setForm, onSubmit, isPending, ca
                         setForm({ ...form, shapeIds: shapeIds.filter((id) => id !== shape._id) });
                       }
                     }}
-                    className="w-4 h-4 rounded"
+                    className="w-4 h-4 rounded accent-black focus:ring-black"
                   />
                   <span className="text-sm font-medium text-gray-700">{shape.name}</span>
                 </label>
@@ -195,7 +445,7 @@ export default function ProductTypeForm({ form, setForm, onSubmit, isPending, ca
           <button
             type="submit"
             disabled={isPending}
-            className="bg-gradient-to-r from-gray-800 to-gray-900 text-white py-2.5 px-6 rounded-md hover:from-gray-900 hover:to-black disabled:opacity-50 transition-all font-medium text-sm shadow-sm hover:shadow-admin"
+            className="bg-linear-to-r from-gray-800 to-gray-900 text-white py-2.5 px-6 rounded-md hover:from-gray-900 hover:to-black disabled:opacity-50 transition-all font-medium text-sm shadow-sm hover:shadow-admin"
           >
             {isPending ? '⏳ Creating...' : '➕ Add Product Type'}
           </button>

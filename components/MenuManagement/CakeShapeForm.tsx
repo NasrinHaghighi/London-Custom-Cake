@@ -73,7 +73,7 @@ export default function CakeShapeForm({ form, setForm, onSubmit, isPending }: Ca
                 type="checkbox"
                 checked={form.isActive}
                 onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-                className="w-4 h-4 rounded"
+                className="w-4 h-4 rounded accent-black focus:ring-black"
               />
               <span className="text-sm font-semibold text-gray-700">Active</span>
             </label>

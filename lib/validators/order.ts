@@ -84,5 +84,19 @@ export const orderQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
 
+export const estimateOrderProductionTimeSchema = z.object({
+  items: z.array(
+    z.object({
+      productTypeId: z.string().regex(objectIdRegex, 'Invalid product type ID'),
+      quantity: z.number().positive('Quantity must be greater than 0').optional(),
+      weight: z.number().positive('Weight must be greater than 0').optional(),
+    }).refine((data) => data.quantity !== undefined || data.weight !== undefined, {
+      message: 'Either quantity or weight is required',
+      path: ['quantity'],
+    })
+  ).min(1, 'At least one item is required for estimate'),
+});
+
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type OrderQueryInput = z.infer<typeof orderQuerySchema>;
+export type EstimateOrderProductionTimeInput = z.infer<typeof estimateOrderProductionTimeSchema>;

@@ -51,11 +51,41 @@ export const createProductTypeSchema = z.object({
 
   // Prep time complexity enum
   basePrepTime: z.enum(['Low', 'Medium', 'High']).default('Medium'),
+
+  // Production-time configuration
+  measurement_type: z.enum(['weight', 'quantity']).default('quantity'),
+  base_weight: z.number()
+    .positive('Base weight must be greater than 0')
+    .optional(),
+  base_quantity: z.number()
+    .int('Base quantity must be a whole number')
+    .positive('Base quantity must be greater than 0')
+    .optional(),
+  bake_time_minutes: z.number()
+    .int('Bake time must be a whole number')
+    .nonnegative('Bake time cannot be negative')
+    .default(0),
+  fill_time_minutes: z.number()
+    .int('Fill time must be a whole number')
+    .nonnegative('Fill time cannot be negative')
+    .default(0),
+  decoration_time_minutes: z.number()
+    .int('Decoration time must be a whole number')
+    .nonnegative('Decoration time cannot be negative')
+    .default(0),
+  rest_time_minutes: z.number()
+    .int('Rest time must be a whole number')
+    .nonnegative('Rest time cannot be negative')
+    .default(0),
+  scale_bake: z.boolean().default(true),
+  scale_fill: z.boolean().default(true),
+  scale_decoration: z.boolean().default(true),
+  scale_rest: z.boolean().default(false),
 })
 .refine(
   (data) => {
     // If pricing method is 'perunit', unitPrice is required
-    if (data.pricingMethod === 'perunit' && !data.unitPrice) {
+    if (data.pricingMethod === 'perunit' && data.unitPrice == null) {
       return false;
     }
     return true;
@@ -68,7 +98,7 @@ export const createProductTypeSchema = z.object({
 .refine(
   (data) => {
     // If pricing method is 'perkg', pricePerKg is required
-    if (data.pricingMethod === 'perkg' && !data.pricePerKg) {
+    if (data.pricingMethod === 'perkg' && data.pricePerKg == null) {
       return false;
     }
     return true;
@@ -81,7 +111,7 @@ export const createProductTypeSchema = z.object({
 .refine(
   (data) => {
     // If maxQuantity is provided, it should be greater than minQuantity
-    if (data.minQuantity && data.maxQuantity && data.maxQuantity <= data.minQuantity) {
+    if (data.minQuantity !== undefined && data.maxQuantity !== undefined && data.maxQuantity <= data.minQuantity) {
       return false;
     }
     return true;
@@ -94,7 +124,7 @@ export const createProductTypeSchema = z.object({
 .refine(
   (data) => {
     // If maxWeight is provided, it should be greater than minWeight
-    if (data.minWeight && data.maxWeight && data.maxWeight <= data.minWeight) {
+    if (data.minWeight !== undefined && data.maxWeight !== undefined && data.maxWeight <= data.minWeight) {
       return false;
     }
     return true;
@@ -102,6 +132,59 @@ export const createProductTypeSchema = z.object({
   {
     message: 'Max weight must be greater than min weight',
     path: ['maxWeight'],
+  }
+)
+.refine(
+  (data) => {
+    const expectedMeasurementType = data.pricingMethod === 'perkg' ? 'weight' : 'quantity';
+    return data.measurement_type === expectedMeasurementType;
+  },
+  {
+    message: 'Measurement type must match pricing method (perunit -> quantity, perkg -> weight)',
+    path: ['measurement_type'],
+  }
+)
+.refine(
+  (data) => {
+    if (data.measurement_type === 'weight') {
+      return data.base_weight !== undefined;
+    }
+
+    return true;
+  },
+  {
+    message: 'Base weight is required when measurement type is "weight"',
+    path: ['base_weight'],
+  }
+)
+.refine(
+  (data) => {
+    if (data.measurement_type === 'quantity') {
+      return data.base_quantity !== undefined;
+    }
+
+    return true;
+  },
+  {
+    message: 'Base quantity is required when measurement type is "quantity"',
+    path: ['base_quantity'],
+  }
+)
+.refine(
+  (data) => {
+    if (data.measurement_type !== 'quantity') {
+      return true;
+    }
+
+    if (data.base_quantity === undefined || data.minQuantity === undefined) {
+      return true;
+    }
+
+    return data.base_quantity === data.minQuantity;
+  },
+  {
+    message: 'Base quantity must match min quantity when measurement type is "quantity"',
+    path: ['base_quantity'],
   }
 );
 

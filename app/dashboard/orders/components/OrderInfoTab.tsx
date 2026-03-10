@@ -8,6 +8,7 @@ import { CakeShape } from '@/lib/api/cakeShapes';
 import { DeliveryMethod } from '../types';
 import OrderTabCustomerInfoSection, { Address, Customer } from './OrderTabCustomerInfoSection';
 import { FlavorType } from '@/lib/api/flavorTypes';
+import { fetchOrderProductionTimeEstimate } from '@/lib/api/orders';
 
 interface CustomerApiResponse {
   success: boolean;
@@ -67,7 +68,6 @@ interface OrderDraft {
   specialInstructions: string;
   customDecorations: string;
   referenceImages: string[];
-  customComplexityAdjustment: 'Low' | 'Medium' | 'High' | '';
 }
 
 const MAX_REFERENCE_IMAGES = 3;
@@ -96,6 +96,22 @@ function toDateInputValue(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function formatHoursLabel(totalMinutes: number): string {
+  const rounded = Math.max(0, Math.round(totalMinutes));
+  const hours = Math.floor(rounded / 60);
+  const minutes = rounded % 60;
+
+  if (hours === 0) {
+    return `${minutes}m`;
+  }
+
+  if (minutes === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${minutes}m`;
 }
 
 function formatOrderItemLine(item: ExistingOrderItem): string {
@@ -142,6 +158,28 @@ function extractRefId(value: RefIdValue | null | undefined): string {
   }
 
   return value.toString();
+}
+
+function calculateItemLineTotal(
+  productType: ProductType | undefined,
+  flavor: FlavorType | undefined,
+  quantity: number,
+  weight: number
+): number {
+  if (!productType) {
+    return 0;
+  }
+
+  const isPerUnit = productType.pricingMethod === 'perunit';
+  const basePrice = isPerUnit
+    ? (productType.unitPrice || 0) * quantity
+    : (productType.pricePerKg || 0) * weight;
+
+  const extraPrice = flavor?.hasExtraPrice
+    ? (isPerUnit ? (flavor.extraPricePerUnit || 0) * quantity : (flavor.extraPricePerKg || 0) * weight)
+    : 0;
+
+  return Math.round((basePrice + extraPrice) * 100) / 100;
 }
 
 interface OrderItemsTabProps {
@@ -198,6 +236,7 @@ export default function OrderItemsTab({
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingItemIndex, setEditingItemIndex] = useState<number>(-1);
   const [editReferenceImageError, setEditReferenceImageError] = useState<string>('');
+  const [editFormError, setEditFormError] = useState<string>('');
   const [isEditingImages, setIsEditingImages] = useState(false);
   const [editingDraft, setEditingDraft] = useState<OrderDraft>({
     productTypeId: '',
@@ -208,7 +247,6 @@ export default function OrderItemsTab({
     specialInstructions: '',
     customDecorations: '',
     referenceImages: [],
-    customComplexityAdjustment: '',
   });
   const [draft, setDraft] = useState<OrderDraft>({
     productTypeId: '',
@@ -219,7 +257,6 @@ export default function OrderItemsTab({
     specialInstructions: '',
     customDecorations: '',
     referenceImages: [],
-    customComplexityAdjustment: '',
   });
 
   // Fetch customer data using React Query (5min stale time per architecture)
@@ -330,21 +367,125 @@ export default function OrderItemsTab({
   }, [cakeShapes, selectedProductType]);
 
   const draftLineTotal = useMemo(() => {
-    if (!selectedProductType) {
+    return calculateItemLineTotal(selectedProductType, selectedFlavor, draft.quantity, draft.weight);
+  }, [selectedFlavor, selectedProductType, draft.quantity, draft.weight]);
+
+  const editingProductType = useMemo(
+    () => productTypes.find((product) => product._id === editingDraft.productTypeId),
+    [editingDraft.productTypeId, productTypes]
+  );
+  const editingSelectedFlavor = useMemo(
+    () => flavors.find((flavor) => flavor._id === editingDraft.flavorId),
+    [editingDraft.flavorId, flavors]
+  );
+  const editingRequiresShapeSelection = Boolean(
+    editingProductType && (editingProductType.shapeIds?.length || 0) > 0
+  );
+
+  const editingAvailableFlavorIds = useMemo(() => {
+    if (!editingDraft.productTypeId) {
+      return [] as string[];
+    }
+
+    const combinations = combinationData?.combinations || [];
+    return combinations
+      .filter((combination) => {
+        const productId = extractRefId(combination.productTypeId);
+        return productId === editingDraft.productTypeId && combination.isAvailable;
+      })
+      .map((combination) => extractRefId(combination.flavorId));
+  }, [combinationData?.combinations, editingDraft.productTypeId]);
+
+  const editingAvailableFlavors = useMemo(() => {
+    const scopedFlavors = flavors.filter((flavor) => editingAvailableFlavorIds.includes(flavor._id));
+    const currentFlavor = flavors.find((flavor) => flavor._id === editingDraft.flavorId);
+
+    if (!currentFlavor || scopedFlavors.some((flavor) => flavor._id === currentFlavor._id)) {
+      return scopedFlavors;
+    }
+
+    return [currentFlavor, ...scopedFlavors];
+  }, [editingAvailableFlavorIds, editingDraft.flavorId, flavors]);
+
+  const editingAvailableShapes = useMemo(() => {
+    if (!editingProductType) {
+      return [] as CakeShape[];
+    }
+
+    const shapeIds = editingProductType.shapeIds || [];
+    if (!shapeIds.length) {
+      return [] as CakeShape[];
+    }
+
+    const normalizedShapeIds = new Set(shapeIds.map((shapeId) => String(shapeId)));
+    const scopedShapes = cakeShapes.filter((shape) => normalizedShapeIds.has(shape._id));
+    const currentShape = cakeShapes.find((shape) => shape._id === editingDraft.cakeShapeId);
+
+    if (!currentShape || scopedShapes.some((shape) => shape._id === currentShape._id)) {
+      return scopedShapes;
+    }
+
+    return [currentShape, ...scopedShapes];
+  }, [cakeShapes, editingDraft.cakeShapeId, editingProductType]);
+
+  const editingLineTotal = useMemo(
+    () => calculateItemLineTotal(editingProductType, editingSelectedFlavor, editingDraft.quantity, editingDraft.weight),
+    [editingDraft.quantity, editingDraft.weight, editingProductType, editingSelectedFlavor]
+  );
+
+  const editingFlavorExtra = useMemo(() => {
+    if (!editingProductType || !editingSelectedFlavor?.hasExtraPrice) {
       return 0;
     }
 
-    const isPerUnit = selectedProductType.pricingMethod === 'perunit';
-    const basePrice = isPerUnit
-      ? (selectedProductType.unitPrice || 0) * draft.quantity
-      : (selectedProductType.pricePerKg || 0) * draft.weight;
+    return editingProductType.pricingMethod === 'perunit'
+      ? (editingSelectedFlavor.extraPricePerUnit || 0) * editingDraft.quantity
+      : (editingSelectedFlavor.extraPricePerKg || 0) * editingDraft.weight;
+  }, [editingDraft.quantity, editingDraft.weight, editingProductType, editingSelectedFlavor]);
 
-    const extraPrice = selectedFlavor?.hasExtraPrice
-      ? (isPerUnit ? (selectedFlavor.extraPricePerUnit || 0) * draft.quantity : (selectedFlavor.extraPricePerKg || 0) * draft.weight)
-      : 0;
+  const editingConstraintError = useMemo(() => {
+    if (!editingProductType) {
+      return 'Product type is required.';
+    }
 
-    return Math.round((basePrice + extraPrice) * 100) / 100;
-  }, [selectedFlavor, selectedProductType, draft.quantity, draft.weight]);
+    if (!editingDraft.flavorId) {
+      return 'Flavor is required.';
+    }
+
+    if (editingRequiresShapeSelection && !editingDraft.cakeShapeId) {
+      return 'Shape is required for this product type.';
+    }
+
+    if (editingProductType.pricingMethod === 'perunit') {
+      const minQuantity = editingProductType.minQuantity ?? 1;
+      const maxQuantity = editingProductType.maxQuantity;
+
+      if (editingDraft.quantity < minQuantity) {
+        return `Quantity must be at least ${minQuantity} for ${editingProductType.name}.`;
+      }
+
+      if (typeof maxQuantity === 'number' && editingDraft.quantity > maxQuantity) {
+        return `Quantity must be at most ${maxQuantity} for ${editingProductType.name}.`;
+      }
+
+      return '';
+    }
+
+    const minWeight = editingProductType.minWeight ?? 0.5;
+    const maxWeight = editingProductType.maxWeight;
+
+    if (editingDraft.weight < minWeight) {
+      return `Weight must be at least ${minWeight}kg for ${editingProductType.name}.`;
+    }
+
+    if (typeof maxWeight === 'number' && editingDraft.weight > maxWeight) {
+      return `Weight must be at most ${maxWeight}kg for ${editingProductType.name}.`;
+    }
+
+    return '';
+  }, [editingDraft.cakeShapeId, editingDraft.flavorId, editingDraft.quantity, editingDraft.weight, editingProductType, editingRequiresShapeSelection]);
+
+  const canSaveEditedItem = editingItemIndex >= 0 && !editingConstraintError;
 
   const subTotal = useMemo(
     () => Math.round(items.reduce((sum, item) => sum + (item.lineTotal || 0), 0) * 100) / 100,
@@ -353,6 +494,38 @@ export default function OrderItemsTab({
   const loyaltyDiscount = hasPreviousOrders ? Math.round(subTotal * 0.1 * 100) / 100 : 0;
   const totalAmount = Math.max(Math.round((subTotal - loyaltyDiscount) * 100) / 100, 0);
   const minimumToConfirm = Math.round(totalAmount * 0.5 * 100) / 100;
+
+  const estimateItemsPayload = useMemo(
+    () => items.map((item) => ({
+      productTypeId: item.productTypeId,
+      quantity: item.quantity,
+      weight: item.weight,
+    })),
+    [items]
+  );
+
+  const {
+    data: productionEstimate,
+    isLoading: isEstimatingProductionTime,
+    error: productionEstimateError,
+  } = useQuery({
+    queryKey: ['order-production-estimate', estimateItemsPayload],
+    queryFn: () => fetchOrderProductionTimeEstimate({ items: estimateItemsPayload }),
+    enabled: estimateItemsPayload.length > 0,
+    staleTime: 30 * 1000,
+  });
+
+  const productionTimeLabel = productionEstimate
+    ? formatHoursLabel(productionEstimate.totalMinutes)
+    : '';
+
+  const productionEstimateByIndex = useMemo(() => {
+    const estimateMap = new Map<number, number>();
+    (productionEstimate?.itemEstimates || []).forEach((estimate) => {
+      estimateMap.set(estimate.itemIndex, estimate.minutes);
+    });
+    return estimateMap;
+  }, [productionEstimate?.itemEstimates]);
 
   const canAddItem = Boolean(
     draft.productTypeId &&
@@ -511,7 +684,6 @@ export default function OrderItemsTab({
       specialInstructions: draft.specialInstructions,
       customDecorations: draft.customDecorations || undefined,
       referenceImages: draft.referenceImages.length ? draft.referenceImages : undefined,
-      customComplexityAdjustment: draft.customComplexityAdjustment ? (draft.customComplexityAdjustment as 'Low' | 'Medium' | 'High') : undefined,
       lineTotal: draftLineTotal,
     };
 
@@ -525,7 +697,6 @@ export default function OrderItemsTab({
       specialInstructions: '',
       customDecorations: '',
       referenceImages: [],
-      customComplexityAdjustment: '',
     });
     setReferenceImageError('');
     if (referenceImagesInputRef.current) {
@@ -538,7 +709,6 @@ export default function OrderItemsTab({
   };
 
   const handleEditItem = (item: OrderItem, index: number) => {
-    const product = productTypes.find((p) => p._id === item.productTypeId);
     setEditingItemId(item.id);
     setEditingItemIndex(index);
     setEditingDraft({
@@ -550,9 +720,9 @@ export default function OrderItemsTab({
       specialInstructions: item.specialInstructions || '',
       customDecorations: item.customDecorations || '',
       referenceImages: item.referenceImages || [],
-      customComplexityAdjustment: (item.customComplexityAdjustment as 'Low' | 'Medium' | 'High' | '') || '',
     });
     setEditReferenceImageError('');
+    setEditFormError('');
   };
 
   const handleCancelEdit = () => {
@@ -567,9 +737,9 @@ export default function OrderItemsTab({
       specialInstructions: '',
       customDecorations: '',
       referenceImages: [],
-      customComplexityAdjustment: '',
     });
     setEditReferenceImageError('');
+    setEditFormError('');
     if (editReferenceImagesInputRef.current) {
       editReferenceImagesInputRef.current.value = '';
     }
@@ -639,14 +809,25 @@ export default function OrderItemsTab({
       return;
     }
 
+    if (editingConstraintError || !editingProductType) {
+      setEditFormError(editingConstraintError || 'Product type is required.');
+      return;
+    }
+
+    setEditFormError('');
+
+    const isPerUnit = editingProductType.pricingMethod === 'perunit';
+
     const updatedItem: OrderItem = {
       ...items[editingItemIndex],
+      flavorId: editingDraft.flavorId,
+      cakeShapeId: editingRequiresShapeSelection ? editingDraft.cakeShapeId : undefined,
       specialInstructions: editingDraft.specialInstructions,
       customDecorations: editingDraft.customDecorations || undefined,
       referenceImages: editingDraft.referenceImages.length ? editingDraft.referenceImages : undefined,
-      customComplexityAdjustment: editingDraft.customComplexityAdjustment ? (editingDraft.customComplexityAdjustment as 'Low' | 'Medium' | 'High') : undefined,
-      quantity: editingDraft.quantity,
-      weight: editingDraft.weight,
+      quantity: isPerUnit ? editingDraft.quantity : undefined,
+      weight: isPerUnit ? undefined : editingDraft.weight,
+      lineTotal: editingLineTotal,
     };
 
     const updatedItems = [...items];
@@ -732,7 +913,6 @@ export default function OrderItemsTab({
           specialInstructions: item.specialInstructions || '',
           customDecorations: item.customDecorations || '',
           referenceImages: item.referenceImages || [],
-          customComplexityAdjustment: item.customComplexityAdjustment,
         })),
         notes: orderNotes,
       };
@@ -865,12 +1045,26 @@ export default function OrderItemsTab({
             <label className="block text-xs font-medium text-gray-500 mb-1">Product Type</label>
             <select
               value={draft.productTypeId}
-              onChange={(e) => setDraft({
-                ...draft,
-                productTypeId: e.target.value,
-                flavorId: '',
-                cakeShapeId: '',
-              })}
+              onChange={(e) => {
+                const productTypeId = e.target.value;
+                const selectedProduct = productTypes.find((product) => product._id === productTypeId);
+
+                const nextQuantity = selectedProduct?.pricingMethod === 'perunit'
+                  ? (selectedProduct.minQuantity ?? 1)
+                  : draft.quantity;
+                const nextWeight = selectedProduct?.pricingMethod === 'perkg'
+                  ? (selectedProduct.minWeight ?? 0.5)
+                  : draft.weight;
+
+                setDraft({
+                  ...draft,
+                  productTypeId,
+                  flavorId: '',
+                  cakeShapeId: '',
+                  quantity: nextQuantity,
+                  weight: nextWeight,
+                });
+              }}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
             >
               <option value="">Select product</option>
@@ -937,7 +1131,12 @@ export default function OrderItemsTab({
                   max={selectedProductType.maxWeight}
                   step="0.1"
                   value={draft.weight}
-                  onChange={(e) => setDraft({ ...draft, weight: Number(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    const minWeight = selectedProductType.minWeight ?? 0.5;
+                    const parsedWeight = Number(e.target.value);
+                    const weight = Number.isFinite(parsedWeight) ? Math.max(parsedWeight, minWeight) : minWeight;
+                    setDraft({ ...draft, weight });
+                  }}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />
               </div>
@@ -1010,34 +1209,6 @@ export default function OrderItemsTab({
               )}
             </div>
 
-            {draft.customDecorations && (
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-2">
-                  Complexity level with decoration:
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['Low', 'Medium', 'High'] as const).map((level) => (
-                    <button
-                      key={level}
-                      type="button"
-                      onClick={() => setDraft({ ...draft, customComplexityAdjustment: level })}
-                      className={`py-2 px-3 rounded-md text-sm font-medium transition-all ${
-                        draft.customComplexityAdjustment === level
-                          ? 'bg-blue-600 text-white border-2 border-blue-700'
-                          : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-blue-400'
-                      }`}
-                    >
-                      {level}
-                    </button>
-                  ))}
-                </div>
-                {draft.customComplexityAdjustment && (
-                  <p className="text-xs text-blue-700 mt-2 font-medium">
-                    ⏱️ Staff sees: {selectedProductType.basePrepTime} (base) + {draft.customComplexityAdjustment} (custom) = <strong>{draft.customComplexityAdjustment}</strong> prep time
-                  </p>
-                )}
-              </div>
-            )}
           </div>
         )}
 
@@ -1068,6 +1239,7 @@ export default function OrderItemsTab({
               const product = productTypes.find((p) => p._id === item.productTypeId);
               const flavor = flavors.find((f) => f._id === item.flavorId);
               const shape = cakeShapes.find((s) => s._id === item.cakeShapeId);
+              const itemEstimatedMinutes = productionEstimateByIndex.get(index);
               return (
                 <div key={item.id} className="flex items-center justify-between border border-gray-200 rounded-md p-3">
                   <div className="text-sm">
@@ -1075,6 +1247,16 @@ export default function OrderItemsTab({
                     <p className="text-gray-600">Flavor: {flavor?.name || 'N/A'} • Shape: {shape?.name || 'N/A'}</p>
                     <p className="text-gray-600">
                       {item.quantity ? `Qty: ${item.quantity}` : `Weight: ${item.weight || 0}kg`}
+                    </p>
+                    <p className="text-xs text-gray-700 mt-1">
+                      ⏱ Estimated prep:{' '}
+                      <span className="font-semibold text-gray-900">
+                        {isEstimatingProductionTime
+                          ? 'Calculating...'
+                          : itemEstimatedMinutes !== undefined
+                            ? formatHoursLabel(itemEstimatedMinutes)
+                            : '-'}
+                      </span>
                     </p>
                     {item.customDecorations && (
                       <p className="text-blue-600 text-xs mt-1 font-medium">🎨 Decoration: {item.customDecorations}</p>
@@ -1091,28 +1273,6 @@ export default function OrderItemsTab({
                         ))}
                       </div>
                     )}
-
-                    {/* Effective prep time badge (custom override or base) */}
-                    {
-                      (() => {
-                        const effectivePrep = (item.customComplexityAdjustment as any) || (product?.basePrepTime as any) || 'Medium';
-                        const badgeClass =
-                          effectivePrep === 'Low' ? 'bg-green-100 text-green-800' :
-                          effectivePrep === 'High' ? 'bg-red-100 text-red-800' :
-                          'bg-yellow-100 text-yellow-800';
-
-                        return (
-                          <p className="mt-1">
-                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${badgeClass}`}>⏱️ {effectivePrep}</span>
-                            {item.customComplexityAdjustment ? (
-                              <span className="text-xs text-gray-500 ml-2">(custom)</span>
-                            ) : product?.basePrepTime ? (
-                              <span className="text-xs text-gray-500 ml-2">(base)</span>
-                            ) : null}
-                          </p>
-                        );
-                      })()
-                    }
                   </div>
                   <div className="flex items-center gap-3">
                     <p className="font-semibold text-gray-800">{(item.lineTotal || 0).toFixed(2)}</p>
@@ -1182,6 +1342,23 @@ export default function OrderItemsTab({
             {!hasPreviousOrders && <span className="ml-1 text-xs text-gray-500">(applies after first order)</span>}
           </p>
           <p className="text-gray-700">Total: <span className="font-bold text-gray-900">{totalAmount.toFixed(2)}</span></p>
+          <p className="text-gray-700">
+            Estimated Production Time:{' '}
+            <span className="font-semibold text-gray-900">
+              {isEstimatingProductionTime
+                ? 'Calculating...'
+                : productionEstimate
+                  ? productionTimeLabel
+                  : estimateItemsPayload.length > 0
+                    ? '-'
+                    : 'No items yet'}
+            </span>
+          </p>
+          {productionEstimateError && (
+            <p className="text-xs text-amber-700">
+              Could not preview production time right now. {productionEstimateError instanceof Error ? productionEstimateError.message : ''}
+            </p>
+          )}
           <p className="text-amber-700 font-semibold">Admin note: collect at least 50% ({minimumToConfirm.toFixed(2)}) to confirm this order.</p>
         </div>
 
@@ -1214,55 +1391,109 @@ export default function OrderItemsTab({
             </div>
 
             <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
-              {/* Current Item Information (Read-Only) */}
-              {editingItemIndex >= 0 && items[editingItemIndex] && (() => {
-                const item = items[editingItemIndex];
-                const product = productTypes.find((p) => p._id === item.productTypeId);
-                const flavor = flavors.find((f) => f._id === item.flavorId);
-                const shape = cakeShapes.find((s) => s._id === item.cakeShapeId);
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4">
+                <h3 className="font-semibold text-gray-800 text-sm">Item Details</h3>
 
-                return (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2">
-                    <h3 className="font-semibold text-gray-800 text-sm">Item Details</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 uppercase">Product</p>
-                        <p className="text-gray-800 font-medium">{product?.name || 'Unknown'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 uppercase">Flavor</p>
-                        <p className="text-gray-800 font-medium">{flavor?.name || 'N/A'}</p>
-                      </div>
-                      {shape && (
-                        <div>
-                          <p className="text-xs font-medium text-gray-500 uppercase">Shape</p>
-                          <p className="text-gray-800 font-medium">{shape.name}</p>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 uppercase">Qty/Weight</p>
-                        <p className="text-gray-800 font-medium">
-                          {item.quantity ? `${item.quantity} unit${item.quantity > 1 ? 's' : ''}` : `${item.weight || 0}kg`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="border-t border-gray-200 pt-3 mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 uppercase">Base Price</p>
-                        <p className="text-gray-800 font-semibold">€{item.lineTotal ? ((item.lineTotal || 0) - ((item.flavorExtraPrice || 0))).toFixed(2) : '0.00'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 uppercase">Flavor Extra</p>
-                        <p className="text-gray-800 font-semibold">€{(item.flavorExtraPrice || 0).toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 uppercase">Line Total</p>
-                        <p className="text-gray-800 font-bold text-base">€{(item.lineTotal || 0).toFixed(2)}</p>
-                      </div>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Product</label>
+                    <p className="text-sm text-gray-800 font-medium">{editingProductType?.name || 'Unknown'}</p>
                   </div>
-                );
-              })()}
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Flavor</label>
+                    <select
+                      value={editingDraft.flavorId}
+                      onChange={(e) => {
+                        setEditFormError('');
+                        setEditingDraft({ ...editingDraft, flavorId: e.target.value });
+                      }}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
+                      disabled={!editingProductType}
+                    >
+                      <option value="">Select flavor</option>
+                      {editingAvailableFlavors.map((flavor) => (
+                        <option key={flavor._id} value={flavor._id}>{flavor.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Shape</label>
+                    <select
+                      value={editingDraft.cakeShapeId}
+                      onChange={(e) => {
+                        setEditFormError('');
+                        setEditingDraft({ ...editingDraft, cakeShapeId: e.target.value });
+                      }}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
+                      disabled={!editingProductType || !editingRequiresShapeSelection}
+                    >
+                      <option value="">Select shape</option>
+                      {editingAvailableShapes.map((shape) => (
+                        <option key={shape._id} value={shape._id}>{shape.name}</option>
+                      ))}
+                    </select>
+                    {editingProductType && !editingRequiresShapeSelection && (
+                      <p className="text-xs text-amber-700 mt-1">No shapes configured for this product type. Shape is optional.</p>
+                    )}
+                  </div>
+
+                  {editingProductType?.pricingMethod === 'perunit' ? (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Quantity</label>
+                      <input
+                        type="number"
+                        min={editingProductType.minQuantity || 1}
+                        max={editingProductType.maxQuantity}
+                        value={editingDraft.quantity}
+                        onChange={(e) => {
+                          setEditFormError('');
+                          setEditingDraft({ ...editingDraft, quantity: Number(e.target.value) || 0 });
+                        }}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Weight (kg)</label>
+                      <input
+                        type="number"
+                        min={editingProductType?.minWeight || 0.5}
+                        max={editingProductType?.maxWeight}
+                        step="0.1"
+                        value={editingDraft.weight}
+                        onChange={(e) => {
+                          if (!editingProductType) {
+                            return;
+                          }
+                          setEditFormError('');
+                          const minWeight = editingProductType.minWeight ?? 0.5;
+                          const parsedWeight = Number(e.target.value);
+                          const weight = Number.isFinite(parsedWeight) ? Math.max(parsedWeight, minWeight) : minWeight;
+                          setEditingDraft({ ...editingDraft, weight });
+                        }}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-gray-200 pt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Base Price</p>
+                    <p className="text-gray-800 font-semibold">€{Math.max(editingLineTotal - editingFlavorExtra, 0).toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Flavor Extra</p>
+                    <p className="text-gray-800 font-semibold">€{editingFlavorExtra.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Line Total</p>
+                    <p className="text-gray-800 font-bold text-base">€{editingLineTotal.toFixed(2)}</p>
+                  </div>
+                </div>
+              </div>
 
               {/* Special Instructions */}
               <div>
@@ -1270,7 +1501,10 @@ export default function OrderItemsTab({
                 <input
                   type="text"
                   value={editingDraft.specialInstructions}
-                  onChange={(e) => setEditingDraft({ ...editingDraft, specialInstructions: e.target.value })}
+                  onChange={(e) => {
+                    setEditFormError('');
+                    setEditingDraft({ ...editingDraft, specialInstructions: e.target.value });
+                  }}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                   placeholder="Optional"
                 />
@@ -1285,35 +1519,15 @@ export default function OrderItemsTab({
                   <input
                     type="text"
                     value={editingDraft.customDecorations}
-                    onChange={(e) => setEditingDraft({ ...editingDraft, customDecorations: e.target.value })}
+                    onChange={(e) => {
+                      setEditFormError('');
+                      setEditingDraft({ ...editingDraft, customDecorations: e.target.value });
+                    }}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                     placeholder="e.g., gold leaf, custom piping, intricate design..."
                   />
                 </div>
 
-                {editingDraft.customDecorations && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-2">
-                      Complexity level with decoration:
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['Low', 'Medium', 'High'] as const).map((level) => (
-                        <button
-                          key={level}
-                          type="button"
-                          onClick={() => setEditingDraft({ ...editingDraft, customComplexityAdjustment: level })}
-                          className={`py-2 px-3 rounded-md text-sm font-medium transition-all ${
-                            editingDraft.customComplexityAdjustment === level
-                              ? 'bg-blue-600 text-white border-2 border-blue-700'
-                              : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-blue-400'
-                          }`}
-                        >
-                          {level}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Reference Images */}
@@ -1354,6 +1568,10 @@ export default function OrderItemsTab({
                   </div>
                 )}
               </div>
+
+              {editFormError && (
+                <p className="text-sm text-red-600">{editFormError}</p>
+              )}
             </div>
 
             <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-end gap-3">
@@ -1367,7 +1585,8 @@ export default function OrderItemsTab({
               <button
                 type="button"
                 onClick={handleSaveEditedItem}
-                className="px-4 py-2 bg-gray-800 text-white rounded-md text-sm hover:bg-gray-900"
+                disabled={!canSaveEditedItem}
+                className="px-4 py-2 bg-gray-800 text-white rounded-md text-sm hover:bg-gray-900 disabled:opacity-50"
               >
                 Save Changes
               </button>

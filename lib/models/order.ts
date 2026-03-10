@@ -59,6 +59,7 @@ const OrderItemSchema = new Schema(
       type: String,
       enum: ['Low', 'Medium', 'High'],
     },
+    estimatedProductionTimeMinutes: { type: Number, min: 0, default: 0 },
     urgent: { type: Boolean, default: false },
   },
   { _id: false }
@@ -101,6 +102,7 @@ const OrderSchema = new Schema(
     subTotal: { type: Number, required: true, min: 0 },
     discount: { type: Number, required: true, min: 0, default: 0 },
     totalAmount: { type: Number, required: true, min: 0 },
+    totalProductionTimeMinutes: { type: Number, required: true, min: 0, default: 0 },
     paidAmount: { type: Number, required: true, min: 0, default: 0 },
     paymentStatus: {
       type: String,

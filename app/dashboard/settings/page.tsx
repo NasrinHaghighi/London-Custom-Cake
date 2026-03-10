@@ -1,39 +1,129 @@
-'use client'
+'use client';
 
-
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-// Deactivate admin API call
+import toast from 'react-hot-toast';
+import AdminManagementTab from '@/components/Setting/AdminManagementTab';
+import SettingsTabs from '@/components/Setting/SettingsTabs';
+import TimeComplexityTab from '@/components/Setting/TimeComplexityTab';
+import {
+  fetchComplexityThresholdSettings,
+  updateComplexityThresholdSettings,
+} from '@/lib/api/settings';
+import {
+  DEFAULT_COMPLEXITY_THRESHOLDS,
+  getComplexityRanges,
+  normalizeComplexityThresholds,
+} from '@/lib/complexity';
+
+const THRESHOLD_DRAFT_TOAST_ID = 'complexity-threshold-draft-change';
+
 const deactivateAdmin = async (id: string) => {
   const res = await fetch(`/api/admin/${id}/deactivate`, { method: 'PATCH' });
   if (!res.ok) throw new Error('Failed to deactivate admin');
   return res.json();
 };
 
-import toast from 'react-hot-toast';
-import AdminList from '@/components/Setting/AdminList';
-
-// Fetch all admins
 const fetchAdmins = async () => {
   const res = await fetch('/api/admin/list', { credentials: 'include' });
   if (!res.ok) throw new Error('Failed to fetch admins');
   return res.json();
 };
 
-// Delete admin API call
 const deleteAdmin = async (id: string) => {
   const res = await fetch(`/api/admin/${id}/delete`, { method: 'DELETE', credentials: 'include' });
   if (!res.ok) throw new Error('Failed to delete admin');
   return res.json();
 };
 
-
 export default function Settings() {
+  const [activeTab, setActiveTab] = useState<'timeComplexity' | 'admin'>('timeComplexity');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  // Mutation for sending admin invitation
+
+  const [lowMaxMinutesInput, setLowMaxMinutesInput] = useState<string | null>(null);
+  const [mediumMaxMinutesInput, setMediumMaxMinutesInput] = useState<string | null>(null);
+  const hadThresholdDraftChangesRef = useRef(false);
+
+  const {
+    data: thresholdSettings,
+    isLoading: isThresholdSettingsLoading,
+    refetch: refetchThresholdSettings,
+  } = useQuery({
+    queryKey: ['complexity-threshold-settings'],
+    queryFn: fetchComplexityThresholdSettings,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const effectiveLowMaxMinutesInput = lowMaxMinutesInput ?? String(thresholdSettings?.lowMaxMinutes || DEFAULT_COMPLEXITY_THRESHOLDS.lowMaxMinutes);
+  const effectiveMediumMaxMinutesInput = mediumMaxMinutesInput ?? String(thresholdSettings?.mediumMaxMinutes || DEFAULT_COMPLEXITY_THRESHOLDS.mediumMaxMinutes);
+
+  const normalizedThresholds = useMemo(() => {
+    const lowCandidate = Number(effectiveLowMaxMinutesInput);
+    const mediumCandidate = Number(effectiveMediumMaxMinutesInput);
+
+    return normalizeComplexityThresholds({
+      lowMaxMinutes: Number.isFinite(lowCandidate) && lowCandidate > 0
+        ? Math.floor(lowCandidate)
+        : thresholdSettings?.lowMaxMinutes || DEFAULT_COMPLEXITY_THRESHOLDS.lowMaxMinutes,
+      mediumMaxMinutes: Number.isFinite(mediumCandidate) && mediumCandidate > 0
+        ? Math.floor(mediumCandidate)
+        : thresholdSettings?.mediumMaxMinutes || DEFAULT_COMPLEXITY_THRESHOLDS.mediumMaxMinutes,
+    });
+  }, [effectiveLowMaxMinutesInput, effectiveMediumMaxMinutesInput, thresholdSettings?.lowMaxMinutes, thresholdSettings?.mediumMaxMinutes]);
+
+  const thresholdRanges = useMemo(() => getComplexityRanges(normalizedThresholds), [normalizedThresholds]);
+
+  const hasThresholdDraftChanges = useMemo(() => {
+    if (!thresholdSettings) {
+      return false;
+    }
+
+    const lowValue = Number(effectiveLowMaxMinutesInput);
+    const mediumValue = Number(effectiveMediumMaxMinutesInput);
+
+    if (!Number.isFinite(lowValue) || !Number.isFinite(mediumValue)) {
+      return true;
+    }
+
+    return (
+      Math.floor(lowValue) !== thresholdSettings.lowMaxMinutes
+      || Math.floor(mediumValue) !== thresholdSettings.mediumMaxMinutes
+    );
+  }, [effectiveLowMaxMinutesInput, effectiveMediumMaxMinutesInput, thresholdSettings]);
+
+  useEffect(() => {
+    if (hasThresholdDraftChanges && !hadThresholdDraftChangesRef.current) {
+      toast('Threshold values changed. Click Save Thresholds to apply.', {
+        id: THRESHOLD_DRAFT_TOAST_ID,
+        icon: 'ℹ️',
+      });
+    }
+
+    if (!hasThresholdDraftChanges && hadThresholdDraftChangesRef.current) {
+      toast.dismiss(THRESHOLD_DRAFT_TOAST_ID);
+    }
+
+    hadThresholdDraftChangesRef.current = hasThresholdDraftChanges;
+  }, [hasThresholdDraftChanges]);
+
+  const thresholdMutation = useMutation({
+    mutationFn: updateComplexityThresholdSettings,
+    onSuccess: async (saved) => {
+      setLowMaxMinutesInput(String(saved.lowMaxMinutes));
+      setMediumMaxMinutesInput(String(saved.mediumMaxMinutes));
+      await refetchThresholdSettings();
+      toast.dismiss(THRESHOLD_DRAFT_TOAST_ID);
+      toast.success('Complexity thresholds updated');
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Failed to update complexity thresholds';
+      toast.error(message);
+    },
+  });
+
   const mutation = useMutation({
     mutationFn: async (data: { name: string; email: string; phone: string }) => {
       const response = await fetch('/api/admin', {
@@ -75,7 +165,11 @@ export default function Settings() {
     },
   });
 
-    // Mutation for deactivating admin
+  const { data: adminData, isLoading: isLoadingAdmins, error: adminError, refetch } = useQuery({
+    queryKey: ['admins'],
+    queryFn: fetchAdmins,
+  });
+
   const deactivateMutation = useMutation({
     mutationFn: deactivateAdmin,
     onSuccess: () => {
@@ -92,7 +186,7 @@ export default function Settings() {
       toast.error(message);
     },
   });
- // Mutation for deleting admin
+
   const deleteMutation = useMutation({
     mutationFn: deleteAdmin,
     onSuccess: () => {
@@ -109,99 +203,82 @@ export default function Settings() {
       toast.error(message);
     },
   });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     mutation.mutate({ name, email, phone });
   };
 
-  // Query for admin list
-  const { data: adminData, isLoading: isLoadingAdmins, error: adminError, refetch } = useQuery({
-    queryKey: ['admins'],
-    queryFn: fetchAdmins,
-  });
+  const handleThresholdSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
 
+    const lowMaxMinutes = Number(effectiveLowMaxMinutesInput);
+    const mediumMaxMinutes = Number(effectiveMediumMaxMinutesInput);
 
+    if (!Number.isFinite(lowMaxMinutes) || lowMaxMinutes < 1) {
+      toast.error('Low threshold must be at least 1 minute.');
+      return;
+    }
+
+    if (!Number.isFinite(mediumMaxMinutes) || mediumMaxMinutes < 2) {
+      toast.error('Medium threshold must be at least 2 minutes.');
+      return;
+    }
+
+    if (mediumMaxMinutes <= lowMaxMinutes) {
+      toast.error('Medium threshold must be greater than low threshold.');
+      return;
+    }
+
+    thresholdMutation.mutate({
+      lowMaxMinutes: Math.floor(lowMaxMinutes),
+      mediumMaxMinutes: Math.floor(mediumMaxMinutes),
+    });
+  };
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
         <p className="text-gray-500 mt-1">Manage admin users and system settings</p>
       </div>
 
-      {/* Add New Admin Form */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-semibold mb-4">Add New Admin</h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Name *</label>
-              <input
-                type="text"
-                placeholder="Enter full name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
-              <input
-                type="email"
-                placeholder="admin@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Phone *</label>
-              <input
-                type="tel"
-                placeholder="+44 123 456 7890"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
-                required
-              />
-            </div>
-          </div>
+      <SettingsTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-          {validationErrors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-1">
-              {validationErrors.map((error, index) => (
-                <p key={index} className="text-red-600 text-sm">{error}</p>
-              ))}
-            </div>
-          )}
-          {mutation.isError && validationErrors.length === 0 && (
-            <p className="text-red-500 text-sm">Error: {mutation.error.message}</p>
-          )}
+      {activeTab === 'timeComplexity' && (
+        <TimeComplexityTab
+          lowMaxMinutesInput={effectiveLowMaxMinutesInput}
+          mediumMaxMinutesInput={effectiveMediumMaxMinutesInput}
+          isLoading={isThresholdSettingsLoading}
+          isSaving={thresholdMutation.isPending}
+          thresholdRanges={thresholdRanges}
+          onLowMaxMinutesChange={setLowMaxMinutesInput}
+          onMediumMaxMinutesChange={setMediumMaxMinutesInput}
+          onSubmit={handleThresholdSubmit}
+        />
+      )}
 
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              className="bg-admin-gradient text-white py-2.5 px-6 rounded-md hover:bg-admin-gradient-hover disabled:opacity-50 transition-all font-medium text-sm shadow-sm hover:shadow-admin"
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending ? '⏳ Sending...' : '➕ Send Invitation'}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Admin List */}
-      <AdminList
-        admins={adminData?.admins}
-        isLoading={isLoadingAdmins}
-        error={adminError}
-        onDeactivate={(id) => deactivateMutation.mutate(id)}
-        onInvite={(admin) => mutation.mutate({ name: admin.name, email: admin.email, phone: admin.phone })}
-        onDelete={(id) => deleteMutation.mutate(id)}
-      />
+      {activeTab === 'admin' && (
+        <AdminManagementTab
+          name={name}
+          email={email}
+          phone={phone}
+          validationErrors={validationErrors}
+          isSubmitting={mutation.isPending}
+          isError={mutation.isError}
+          errorMessage={mutation.error instanceof Error ? mutation.error.message : undefined}
+          admins={adminData?.admins}
+          isLoadingAdmins={isLoadingAdmins}
+          adminError={adminError}
+          onNameChange={setName}
+          onEmailChange={setEmail}
+          onPhoneChange={setPhone}
+          onSubmit={handleSubmit}
+          onDeactivate={(id) => deactivateMutation.mutate(id)}
+          onInvite={(admin) => mutation.mutate({ name: admin.name, email: admin.email, phone: admin.phone })}
+          onDelete={(id) => deleteMutation.mutate(id)}
+        />
+      )}
     </div>
   );
 }

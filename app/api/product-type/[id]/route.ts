@@ -27,10 +27,31 @@ export async function PUT(
     // Validate request body with Zod
     const validatedData = updateProductTypeSchema.parse(requestBody);
 
+    const normalizedData = { ...validatedData };
+    normalizedData.measurement_type = normalizedData.pricingMethod === 'perkg' ? 'weight' : 'quantity';
+
+    if (normalizedData.measurement_type === 'quantity') {
+      const syncedQuantity = normalizedData.minQuantity ?? normalizedData.base_quantity;
+      if (syncedQuantity !== undefined) {
+        normalizedData.base_quantity = syncedQuantity;
+        normalizedData.minQuantity = syncedQuantity;
+      }
+      normalizedData.base_weight = undefined;
+    }
+
+    if (normalizedData.measurement_type === 'weight') {
+      const syncedWeight = normalizedData.minWeight ?? normalizedData.base_weight;
+      if (syncedWeight !== undefined) {
+        normalizedData.base_weight = syncedWeight;
+        normalizedData.minWeight = syncedWeight;
+      }
+      normalizedData.base_quantity = undefined;
+    }
+
     // Convert shapeIds strings to ObjectIds
     const dataToUpdate = {
-      ...validatedData,
-      shapeIds: validatedData.shapeIds?.map((id: string) => new mongoose.Types.ObjectId(id)) || []
+      ...normalizedData,
+      shapeIds: normalizedData.shapeIds?.map((id: string) => new mongoose.Types.ObjectId(id)) || []
     };
 
     // Update product type with validated data

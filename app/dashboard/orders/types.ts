@@ -49,7 +49,6 @@ export interface OrderItem {
   specialInstructions: string;
   customDecorations?: string;
   referenceImages?: string[];
-  customComplexityAdjustment?: 'Low' | 'Medium' | 'High';
   lineTotal?: number;
 }
 

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { OrderListItem, SelectedOrder } from './types';
 import {
   formatDateTimeDisplay,
+  formatDurationMinutes,
   formatMoney,
   getDateBadgeMeta,
   getOrderStatusClass,
@@ -33,7 +34,7 @@ export default function OrdersWorkspaceTable({ orders, isLoading, onManagePaymen
                 <th className="px-4 py-3">Total</th>
                 <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3">Order Status</th>
-                <th className="px-4 py-3">Complexity</th>
+                <th className="px-4 py-3">Production Time</th>
                 <th className="px-4 py-3">Action</th>
               </tr>
             </thead>
@@ -61,6 +62,7 @@ export default function OrdersWorkspaceTable({ orders, isLoading, onManagePaymen
                     : isUrgentTomorrow
                       ? 'border-l-4 border-blue-500'
                       : '';
+                const derivedComplexity = order.complexity;
 
                 return (
                   <tr key={order._id} className={rowClass}>
@@ -88,10 +90,16 @@ export default function OrdersWorkspaceTable({ orders, isLoading, onManagePaymen
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {/* complexity badge derived on server */}
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${getComplexityClass(order.complexity)}`}>
-                        {order.complexity || 'Medium'}
-                      </span>
+                      <div className="space-y-1">
+                        <div className="font-semibold text-gray-800">
+                          {formatDurationMinutes(order.totalProductionTimeMinutes)}
+                        </div>
+                        {derivedComplexity && (
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${getComplexityClass(derivedComplexity)}`}>
+                            {derivedComplexity}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">

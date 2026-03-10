@@ -20,8 +20,10 @@ type OrderItem = {
   flavorExtraPrice: number;
   lineTotal: number;
   specialInstructions?: string;
+  customDecorations?: string;
   referenceImages?: string[];
   customComplexityAdjustment?: 'Low' | 'Medium' | 'High';
+  estimatedProductionTimeMinutes?: number;
 };
 
 type DeliveryAddress = {
@@ -49,6 +51,7 @@ type OrderDetail = {
   subTotal: number;
   discount: number;
   totalAmount: number;
+  totalProductionTimeMinutes?: number;
   paidAmount: number;
   paymentStatus: PaymentStatus;
   status: OrderStatus;
@@ -91,6 +94,26 @@ function formatDateTime(value: string) {
   })}h`;
 }
 
+function formatDurationMinutes(value?: number) {
+  if (typeof value !== 'number' || value <= 0) {
+    return '-';
+  }
+
+  const rounded = Math.max(0, Math.round(value));
+  const hours = Math.floor(rounded / 60);
+  const minutes = rounded % 60;
+
+  if (hours === 0) {
+    return `${minutes}m`;
+  }
+
+  if (minutes === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${minutes}m`;
+}
+
 function getStatusClass(status: OrderStatus) {
   if (status === 'completed' || status === 'ready') return 'bg-green-100 text-green-700';
   if (status === 'in-progress') return 'bg-blue-100 text-blue-700';
@@ -107,22 +130,6 @@ function getComplexityClass(level: 'Low' | 'Medium' | 'High' | undefined) {
   if (level === 'High') return 'bg-red-100 text-red-800';
   if (level === 'Low') return 'bg-green-100 text-green-800';
   return 'bg-yellow-100 text-yellow-800';
-}
-
-function deriveOrderComplexity(order: OrderDetail): 'Low' | 'Medium' | 'High' {
-  const levels = ['Low', 'Medium', 'High'] as const;
-  let highestIndex = 1;
-  if (Array.isArray(order.items)) {
-    for (const item of order.items) {
-      const lvl = (item.customComplexityAdjustment as any) || 'Medium';
-      const idx = levels.indexOf(lvl);
-      if (idx > highestIndex) {
-        highestIndex = idx;
-        if (highestIndex === 2) break;
-      }
-    }
-  }
-  return levels[highestIndex];
 }
 
 export default function OrderDetailPage() {
@@ -157,6 +164,25 @@ export default function OrderDetailPage() {
 
   const order = orderData?.order;
   const payments = paymentsData?.payments || [];
+
+  const estimatedOrderMinutes = useMemo(() => {
+    if (!order) {
+      return undefined;
+    }
+
+    if (typeof order.totalProductionTimeMinutes === 'number' && order.totalProductionTimeMinutes > 0) {
+      return order.totalProductionTimeMinutes;
+    }
+
+    const fallbackTotal = (order.items || []).reduce((sum, item) => {
+      const itemMinutes = typeof item.estimatedProductionTimeMinutes === 'number'
+        ? item.estimatedProductionTimeMinutes
+        : 0;
+      return sum + itemMinutes;
+    }, 0);
+
+    return fallbackTotal > 0 ? fallbackTotal : undefined;
+  }, [order]);
 
   const paymentTotals = useMemo(() => {
     const paymentEntries = payments.filter((payment) => payment.type === 'payment');
@@ -218,7 +244,7 @@ export default function OrderDetailPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <p className="text-xs uppercase text-gray-500">Order Status</p>
             <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${getStatusClass(order.status)}`}>
@@ -233,9 +259,13 @@ export default function OrderDetailPage() {
           </div>
           <div>
             <p className="text-xs uppercase text-gray-500">Complexity</p>
-            <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold ${getComplexityClass(order.complexity || deriveOrderComplexity(order))}`}>
-              {order.complexity || deriveOrderComplexity(order)}
+            <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold ${getComplexityClass(order.complexity)}`}>
+              {order.complexity || 'Not set'}
             </span>
+          </div>
+          <div>
+            <p className="text-xs uppercase text-gray-500">Estimated Time</p>
+            <p className="font-medium text-gray-800 mt-1">{formatDurationMinutes(estimatedOrderMinutes)}</p>
           </div>
           <div>
             <p className="text-xs uppercase text-gray-500">Order Date</p>
@@ -276,6 +306,7 @@ export default function OrderDetailPage() {
                 <th className="py-2 pr-3">Base</th>
                 <th className="py-2 pr-3">Extra</th>
                 <th className="py-2 pr-3">Total</th>
+                <th className="py-2 pr-3">Est. Time</th>
               </tr>
             </thead>
             <tbody>
@@ -315,6 +346,7 @@ export default function OrderDetailPage() {
                   <td className="py-2 pr-3 text-gray-700">{formatMoney(item.unitBasePrice)}</td>
                   <td className="py-2 pr-3 text-gray-700">{formatMoney(item.flavorExtraPrice)}</td>
                   <td className="py-2 pr-3 font-medium text-gray-800">{formatMoney(item.lineTotal)}</td>
+                  <td className="py-2 pr-3 text-gray-700 font-medium">{formatDurationMinutes(item.estimatedProductionTimeMinutes)}</td>
                 </tr>
               ))}
             </tbody>

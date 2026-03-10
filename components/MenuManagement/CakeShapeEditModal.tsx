@@ -34,7 +34,10 @@ export default function CakeShapeEditModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-end z-50">
       <div className="bg-white rounded-lg shadow-lg w-96 h-screen overflow-y-auto p-6 space-y-4 animate-in slide-in-from-right duration-300">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold">Edit Cake Shape</h2>
+          <div>
+            <h2 className="text-xl font-bold">Edit Cake Shape</h2>
+            <p className="text-xs text-gray-500">{cakeShape.name}</p>
+          </div>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
@@ -91,7 +94,7 @@ export default function CakeShapeEditModal({
               id="isActive"
               checked={form.isActive}
               onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-              className="w-4 h-4 rounded"
+              className="w-4 h-4 rounded accent-black focus:ring-black"
             />
             <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
               Active
@@ -110,7 +113,7 @@ export default function CakeShapeEditModal({
             <button
               type="submit"
               disabled={isPending}
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-md hover:from-gray-900 hover:to-black disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-sm hover:shadow-admin"
+              className="flex-1 px-4 py-2 bg-linear-to-r from-gray-800 to-gray-900 text-white rounded-md hover:from-gray-900 hover:to-black disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-sm hover:shadow-admin"
             >
               {isPending ? '⏳ Saving...' : '💾 Save'}
             </button>

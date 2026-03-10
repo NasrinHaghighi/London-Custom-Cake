@@ -26,6 +26,42 @@ export function formatDateTimeDisplay(value: string) {
   });
 }
 
+export function formatDurationMinutes(value?: number) {
+  if (typeof value !== 'number' || value <= 0) {
+    return '-';
+  }
+
+  const rounded = Math.max(0, Math.round(value));
+  const hours = Math.floor(rounded / 60);
+  const minutes = rounded % 60;
+
+  if (hours === 0) {
+    return `${minutes}m`;
+  }
+
+  if (minutes === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${minutes}m`;
+}
+
+export function getComplexityFromMinutes(value?: number): 'Low' | 'Medium' | 'High' | undefined {
+  if (typeof value !== 'number' || value <= 0) {
+    return undefined;
+  }
+
+  if (value < 120) {
+    return 'Low';
+  }
+
+  if (value <= 300) {
+    return 'Medium';
+  }
+
+  return 'High';
+}
+
 export function toDateInputValue(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');

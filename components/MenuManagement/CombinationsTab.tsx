@@ -305,7 +305,7 @@ export default function CombinationsTab() {
                               onChange={(e) => toggleCombination(product._id, flavor._id, e.target.checked)}
                               disabled={isDisabled || createMutation.isPending || deleteMutation.isPending}
                               title={isDisabled ? 'Cannot select - Product or Flavor is inactive' : ''}
-                              className="w-5 h-5 accent-gray-800 rounded focus:ring-2 focus:ring-gray-800 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                              className="w-5 h-5 accent-black rounded focus:ring-2 focus:ring-black cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                             />
                             {isChecked && (
                               <div className={`text-sm font-semibold text-green-600 ${

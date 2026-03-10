@@ -6,6 +6,8 @@ import logger from '@/lib/logger';
 import Order from '@/lib/models/order';
 import Admin from '@/lib/models/admin';
 import ActivityLog from '@/lib/models/activitylog';
+import { classifyComplexityFromMinutes } from '@/lib/complexity';
+import { getComplexityThresholdSettings } from '@/lib/services/complexityThresholdSettings';
 
 export async function GET(
   request: NextRequest,
@@ -29,25 +31,57 @@ export async function GET(
       return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
     }
 
+    const thresholds = await getComplexityThresholdSettings();
+
+    const getOrderProductionMinutes = (o: any): number | undefined => {
+      if (typeof o.totalProductionTimeMinutes === 'number' && o.totalProductionTimeMinutes > 0) {
+        return o.totalProductionTimeMinutes;
+      }
+
+      if (!Array.isArray(o.items)) {
+        return undefined;
+      }
+
+      const total = o.items.reduce((sum: number, item: any) => {
+        const itemMinutes = typeof item.estimatedProductionTimeMinutes === 'number'
+          ? item.estimatedProductionTimeMinutes
+          : 0;
+        return sum + itemMinutes;
+      }, 0);
+
+      return total > 0 ? total : undefined;
+    };
+
     // derive complexity for single order detail
     const deriveComplexity = (o: any): 'Low' | 'Medium' | 'High' => {
+      const estimatedMinutes = getOrderProductionMinutes(o);
+      const classifiedFromMinutes = classifyComplexityFromMinutes(estimatedMinutes, thresholds);
+      if (classifiedFromMinutes) {
+        return classifiedFromMinutes;
+      }
+
       const levels = ['Low', 'Medium', 'High'] as const;
       let highestIndex = 1;
+
       if (Array.isArray(o.items)) {
         for (const item of o.items) {
-          const lvl = item.customComplexityAdjustment || 'Medium';
-          const idx = levels.indexOf(lvl);
-          if (idx > highestIndex) {
-            highestIndex = idx;
-            if (highestIndex === 2) break;
+          const level: 'Low' | 'Medium' | 'High' = item.customComplexityAdjustment || 'Medium';
+          const index = levels.indexOf(level);
+          if (index > highestIndex) {
+            highestIndex = index;
+            if (highestIndex === 2) {
+              break;
+            }
           }
         }
       }
+
       return levels[highestIndex];
     };
 
     const orderWithComplexity = {
       ...order,
+      totalProductionTimeMinutes: getOrderProductionMinutes(order),
       complexity: deriveComplexity(order),
     };
 

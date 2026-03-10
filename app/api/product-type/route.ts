@@ -38,10 +38,31 @@ export async function POST(request: NextRequest) {
     const validatedData = createProductTypeSchema.parse(requestBody);
     console.log('🔴 API ROUTE - After Zod validation:', validatedData);
 
+    const normalizedData = { ...validatedData };
+    normalizedData.measurement_type = normalizedData.pricingMethod === 'perkg' ? 'weight' : 'quantity';
+
+    if (normalizedData.measurement_type === 'quantity') {
+      const syncedQuantity = normalizedData.minQuantity ?? normalizedData.base_quantity;
+      if (syncedQuantity !== undefined) {
+        normalizedData.base_quantity = syncedQuantity;
+        normalizedData.minQuantity = syncedQuantity;
+      }
+      normalizedData.base_weight = undefined;
+    }
+
+    if (normalizedData.measurement_type === 'weight') {
+      const syncedWeight = normalizedData.minWeight ?? normalizedData.base_weight;
+      if (syncedWeight !== undefined) {
+        normalizedData.base_weight = syncedWeight;
+        normalizedData.minWeight = syncedWeight;
+      }
+      normalizedData.base_quantity = undefined;
+    }
+
     // Convert shapeIds strings to ObjectIds
     const dataToSave = {
-      ...validatedData,
-      shapeIds: validatedData.shapeIds?.map((id: string) => new mongoose.Types.ObjectId(id)) || []
+      ...normalizedData,
+      shapeIds: normalizedData.shapeIds?.map((id: string) => new mongoose.Types.ObjectId(id)) || []
     };
     console.log('🔴 API ROUTE - Data to save (with ObjectIds):', dataToSave);
 

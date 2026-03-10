@@ -17,6 +17,7 @@ export interface OrderItem {
   customDecorations?: string;
   referenceImages?: string[];
   customComplexityAdjustment?: ComplexityLevel;
+  estimatedProductionTimeMinutes?: number;
   urgent?: boolean;
 }
 
@@ -27,6 +28,7 @@ export interface OrderListItem {
   customerPhone?: string;
   orderDateTime?: string;
   totalAmount?: number;
+  totalProductionTimeMinutes?: number;
   paymentStatus?: 'unpaid' | 'partial' | 'paid';
   status?: string;
   complexity?: ComplexityLevel;
@@ -55,6 +57,28 @@ interface OrderResponse {
   success: boolean;
   order?: OrderListItem & { notes?: string };
   message?: string;
+}
+
+export interface OrderProductionEstimateItemInput {
+  productTypeId: string;
+  quantity?: number;
+  weight?: number;
+}
+
+export interface OrderProductionEstimateItem {
+  itemIndex: number;
+  productTypeId: string;
+  productTypeName: string;
+  minutes: number;
+}
+
+interface OrderProductionEstimateResponse {
+  success: boolean;
+  itemEstimates?: OrderProductionEstimateItem[];
+  totalMinutes?: number;
+  totalLabel?: string;
+  message?: string;
+  errors?: string[];
 }
 
 export async function fetchOrders(params: Record<string, unknown> = {}): Promise<OrderListItem[]> {
@@ -128,5 +152,31 @@ export async function updateOrder(
   }
 
   return data.order;
+}
+
+export async function fetchOrderProductionTimeEstimate(payload: { items: OrderProductionEstimateItemInput[] }) {
+  const res = await fetch('/api/orders/estimate-time', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data: OrderProductionEstimateResponse = await res.json();
+
+  if (!res.ok || !data.success || data.totalMinutes === undefined || !data.itemEstimates) {
+    if (Array.isArray(data.errors) && data.errors.length > 0) {
+      throw new Error(data.errors.join(', '));
+    }
+
+    throw new Error(data.message || `HTTP error: ${res.status}`);
+  }
+
+  return {
+    itemEstimates: data.itemEstimates,
+    totalMinutes: data.totalMinutes,
+    totalLabel: data.totalLabel || `${data.totalMinutes}m`,
+  };
 }
 

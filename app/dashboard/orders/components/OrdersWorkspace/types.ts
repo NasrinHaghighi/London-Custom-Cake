@@ -16,6 +16,7 @@ export type OrderListItem = {
   orderDateTime: string;
   createdAt?: string;
   totalAmount: number;
+  totalProductionTimeMinutes?: number;
   // summary prep complexity for the whole order (highest level among items)
   complexity?: 'Low' | 'Medium' | 'High';
 };

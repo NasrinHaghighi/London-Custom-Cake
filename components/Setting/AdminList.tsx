@@ -1,6 +1,6 @@
 import React from 'react';
 
-type Admin = {
+export type Admin = {
   _id: string;
   name: string;
   email: string;
@@ -8,7 +8,7 @@ type Admin = {
   passwordHash?: string;
 };
 
-type AdminListProps = {
+export type AdminListProps = {
   admins?: Admin[];
   onDelete?: (id: string) => void;
   onDeactivate?: (id: string) => void;

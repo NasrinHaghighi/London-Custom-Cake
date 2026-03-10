@@ -59,7 +59,7 @@ export default function MenuManagementPage() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Menu Management</h1>
-        <p className="text-gray-600">Manage your product types, flavors, and their combinations</p>
+        <p className="text-gray-600">Manage product types, flavors, combinations, and production timing settings</p>
       </div>
 
       {/* Tabs */}
@@ -70,7 +70,7 @@ export default function MenuManagementPage() {
             className={`
               px-6 py-3 rounded-md font-semibold text-base transition-all duration-200
               ${activeTab === 'products'
-                ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-admin-lg hover:from-gray-900 hover:to-black'
+                ? 'bg-linear-to-r from-gray-800 to-gray-900 text-white shadow-admin-lg hover:from-gray-900 hover:to-black'
                 : 'bg-white text-gray-700 hover:text-gray-900 hover:shadow-md border border-gray-200'
               }
             `}
@@ -92,7 +92,7 @@ export default function MenuManagementPage() {
             className={`
               px-6 py-3 rounded-md font-semibold text-base transition-all duration-200
               ${activeTab === 'flavors'
-                ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-admin-lg hover:from-gray-900 hover:to-black'
+                ? 'bg-linear-to-r from-gray-800 to-gray-900 text-white shadow-admin-lg hover:from-gray-900 hover:to-black'
                 : 'bg-white text-gray-700 hover:text-gray-900 hover:shadow-md border border-gray-200'
               }
             `}
@@ -114,7 +114,7 @@ export default function MenuManagementPage() {
             className={`
               px-6 py-3 rounded-md font-semibold text-base transition-all duration-200
               ${activeTab === 'combinations'
-                ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-admin-lg hover:from-gray-900 hover:to-black'
+                ? 'bg-linear-to-r from-gray-800 to-gray-900 text-white shadow-admin-lg hover:from-gray-900 hover:to-black'
                 : 'bg-white text-gray-700 hover:text-gray-900 hover:shadow-md border border-gray-200'
               }
             `}
@@ -136,7 +136,7 @@ export default function MenuManagementPage() {
             className={`
               px-6 py-3 rounded-md font-semibold text-base transition-all duration-200
               ${activeTab === 'shapes'
-                ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-admin-lg hover:from-gray-900 hover:to-black'
+                ? 'bg-linear-to-r from-gray-800 to-gray-900 text-white shadow-admin-lg hover:from-gray-900 hover:to-black'
                 : 'bg-white text-gray-700 hover:text-gray-900 hover:shadow-md border border-gray-200'
               }
             `}
