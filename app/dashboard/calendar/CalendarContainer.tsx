@@ -126,8 +126,8 @@ export default function CalendarContainer() {
   // Filter orders based on active filter
   const filteredOrders = useMemo(() => {
     if (activeFilter === 'urgent') {
-      // Show only orders with complexity High or paymentStatus unpaid
-      return orders.filter((o) => o.complexity === 'High' || o.paymentStatus === 'unpaid');
+      // Show only orders with complexity Hard or paymentStatus unpaid
+      return orders.filter((o) => o.complexity === 'Hard' || o.paymentStatus === 'unpaid');
     }
     return orders;
   }, [orders, activeFilter]);

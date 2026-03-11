@@ -74,11 +74,21 @@ const ProductTypeSchema = new Schema(
     unitPrice: { type: Number },
     minQuantity: { type: Number },
     maxQuantity: { type: Number },
+    oversizeQuantityExtraMinutesPerUnit: {
+      type: Number,
+      min: 0,
+      default: 30,
+    },
 
     // For 'perkg' pricing
     pricePerKg: { type: Number },
     minWeight: { type: Number },
     maxWeight: { type: Number },
+    oversizeWeightExtraMinutes: {
+      type: Number,
+      min: 0,
+      default: 60,
+    },
 
     // Cake shapes (one-to-many: a product can have multiple shapes)
     shapeIds: [
@@ -91,7 +101,7 @@ const ProductTypeSchema = new Schema(
     // Estimated base preparation complexity for the product
     basePrepTime: {
       type: String,
-      enum: ['Low', 'Medium', 'High'],
+      enum: ['Low', 'Medium', 'Hard'],
       required: true,
       default: 'Medium',
     },

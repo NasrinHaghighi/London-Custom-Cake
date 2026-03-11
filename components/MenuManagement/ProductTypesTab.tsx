@@ -28,9 +28,11 @@ export interface ProductTypeForm {
   unitPrice?: number;
   minQuantity?: number;
   maxQuantity?: number;
+  oversizeQuantityExtraMinutesPerUnit?: number;
   pricePerKg?: number;
   minWeight?: number;
   maxWeight?: number;
+  oversizeWeightExtraMinutes?: number;
   hasMultipleShapes?: boolean;
   shapeIds?: string[];
 }
@@ -56,9 +58,11 @@ export default function ProductTypesTab() {
     unitPrice: undefined,
     minQuantity: 1,
     maxQuantity: undefined,
+    oversizeQuantityExtraMinutesPerUnit: 30,
     pricePerKg: undefined,
     minWeight: undefined,
     maxWeight: undefined,
+    oversizeWeightExtraMinutes: 60,
     hasMultipleShapes: false,
     shapeIds: [],
   });
@@ -85,9 +89,11 @@ export default function ProductTypesTab() {
     unitPrice: undefined,
     minQuantity: 1,
     maxQuantity: undefined,
+    oversizeQuantityExtraMinutesPerUnit: 30,
     pricePerKg: undefined,
     minWeight: undefined,
     maxWeight: undefined,
+    oversizeWeightExtraMinutes: 60,
     hasMultipleShapes: false,
     shapeIds: [],
   });
@@ -95,6 +101,22 @@ export default function ProductTypesTab() {
   // Custom Hooks
   const { data: productTypesData, isLoading: productTypesLoading, error } = useProductTypes();
   const { data: cakeShapesData } = useCakeShapes();
+
+  const normalizePositiveInteger = useCallback((value: number | undefined, fallback = 1) => {
+    if (value === undefined || !Number.isFinite(value)) {
+      return fallback;
+    }
+
+    return Math.max(1, Math.floor(value));
+  }, []);
+
+  const normalizePositiveNumber = useCallback((value: number | undefined, fallback = 1) => {
+    if (value === undefined || !Number.isFinite(value)) {
+      return fallback;
+    }
+
+    return value > 0 ? value : fallback;
+  }, []);
 
   const resetForm = useCallback(() => {
     setProductTypeForm({
@@ -116,9 +138,11 @@ export default function ProductTypesTab() {
       unitPrice: undefined,
       minQuantity: 1,
       maxQuantity: undefined,
+      oversizeQuantityExtraMinutesPerUnit: 30,
       pricePerKg: undefined,
       minWeight: undefined,
       maxWeight: undefined,
+      oversizeWeightExtraMinutes: 60,
       hasMultipleShapes: false,
       shapeIds: [],
     });
@@ -138,10 +162,10 @@ export default function ProductTypesTab() {
     e.preventDefault();
     const measurement_type = productTypeForm.pricingMethod === 'perkg' ? 'weight' : 'quantity';
     const syncedBaseQuantity = measurement_type === 'quantity'
-      ? (productTypeForm.minQuantity ?? productTypeForm.base_quantity ?? 1)
+      ? normalizePositiveInteger(productTypeForm.minQuantity ?? productTypeForm.base_quantity)
       : undefined;
     const syncedBaseWeight = measurement_type === 'weight'
-      ? (productTypeForm.minWeight ?? productTypeForm.base_weight ?? 1)
+      ? normalizePositiveNumber(productTypeForm.minWeight ?? productTypeForm.base_weight)
       : undefined;
 
     createProductTypeMutation.mutate({
@@ -161,6 +185,15 @@ export default function ProductTypesTab() {
   }, [deleteProductTypeMutation]);
 
   const handleEditProductType = useCallback((productType: ProductType) => {
+    const normalizedQuantityBase = normalizePositiveInteger(
+      productType.base_quantity ?? productType.minQuantity,
+      1
+    );
+    const normalizedWeightBase = normalizePositiveNumber(
+      productType.base_weight ?? productType.minWeight,
+      1
+    );
+
     setEditingProductType(productType);
     setEditForm({
       name: productType.name,
@@ -168,8 +201,8 @@ export default function ProductTypesTab() {
       isActive: productType.isActive,
       pricingMethod: productType.pricingMethod,
       measurement_type: productType.pricingMethod === 'perkg' ? 'weight' : 'quantity',
-      base_weight: productType.base_weight,
-      base_quantity: productType.base_quantity || 1,
+      base_weight: productType.pricingMethod === 'perkg' ? normalizedWeightBase : productType.base_weight,
+      base_quantity: productType.pricingMethod === 'perunit' ? normalizedQuantityBase : productType.base_quantity,
       bake_time_minutes: productType.bake_time_minutes || 0,
       fill_time_minutes: productType.fill_time_minutes || 0,
       decoration_time_minutes: productType.decoration_time_minutes || 0,
@@ -179,28 +212,30 @@ export default function ProductTypesTab() {
       scale_decoration: productType.scale_decoration ?? true,
       scale_rest: productType.scale_rest ?? false,
       unitPrice: productType.unitPrice,
-      minQuantity: productType.measurement_type === 'quantity'
-        ? (productType.base_quantity ?? productType.minQuantity ?? 1)
+      minQuantity: productType.pricingMethod === 'perunit'
+        ? normalizedQuantityBase
         : productType.minQuantity,
       maxQuantity: productType.maxQuantity,
+      oversizeQuantityExtraMinutesPerUnit: productType.oversizeQuantityExtraMinutesPerUnit ?? 30,
       pricePerKg: productType.pricePerKg,
-      minWeight: productType.minWeight,
+      minWeight: productType.pricingMethod === 'perkg' ? normalizedWeightBase : productType.minWeight,
       maxWeight: productType.maxWeight,
+      oversizeWeightExtraMinutes: productType.oversizeWeightExtraMinutes ?? 60,
       hasMultipleShapes: (productType.shapeIds && productType.shapeIds.length > 0) ? true : false,
       shapeIds: productType.shapeIds || [],
     });
     setIsEditModalOpen(true);
-  }, []);
+  }, [normalizePositiveInteger, normalizePositiveNumber]);
 
   const handleUpdateSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (editingProductType) {
       const measurement_type = editForm.pricingMethod === 'perkg' ? 'weight' : 'quantity';
       const syncedBaseQuantity = measurement_type === 'quantity'
-        ? (editForm.minQuantity ?? editForm.base_quantity ?? 1)
+        ? normalizePositiveInteger(editForm.minQuantity ?? editForm.base_quantity)
         : undefined;
       const syncedBaseWeight = measurement_type === 'weight'
-        ? (editForm.minWeight ?? editForm.base_weight ?? 1)
+        ? normalizePositiveNumber(editForm.minWeight ?? editForm.base_weight)
         : undefined;
 
       updateProductTypeMutation.mutate({
@@ -213,7 +248,7 @@ export default function ProductTypesTab() {
         id: editingProductType._id,
       });
     }
-  }, [editingProductType, editForm, updateProductTypeMutation]);
+  }, [editingProductType, editForm, normalizePositiveInteger, normalizePositiveNumber, updateProductTypeMutation]);
 
   const handleCloseEditModal = useCallback(() => {
     setIsEditModalOpen(false);

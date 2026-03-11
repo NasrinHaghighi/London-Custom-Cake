@@ -47,6 +47,20 @@ const OrderItemSchema = new Schema(
     lineTotal: { type: Number, required: true, min: 0 },
     specialInstructions: { type: String, default: '' },
     customDecorations: { type: String, default: '' },
+    decorationComplexity: {
+      type: String,
+      enum: ['none', 'simple', 'detailed', 'premium'],
+      default: 'none',
+    },
+    decorationExtraMinutes: { type: Number, min: 0, default: 0 },
+    customTextMessage: { type: String, default: '' },
+    textType: {
+      type: String,
+      enum: ['none', 'buttercream', 'fondantLetters', 'chocolatePiping'],
+      default: 'none',
+    },
+    textExtraMinutes: { type: Number, min: 0, default: 0 },
+    oversizeExtraMinutes: { type: Number, min: 0, default: 0 },
     referenceImages: {
       type: [{ type: String, trim: true }],
       default: [],
@@ -57,7 +71,7 @@ const OrderItemSchema = new Schema(
     },
     customComplexityAdjustment: {
       type: String,
-      enum: ['Low', 'Medium', 'High'],
+      enum: ['Low', 'Medium', 'Hard'],
     },
     estimatedProductionTimeMinutes: { type: Number, min: 0, default: 0 },
     urgent: { type: Boolean, default: false },

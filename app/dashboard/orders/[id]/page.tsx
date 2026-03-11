@@ -22,7 +22,7 @@ type OrderItem = {
   specialInstructions?: string;
   customDecorations?: string;
   referenceImages?: string[];
-  customComplexityAdjustment?: 'Low' | 'Medium' | 'High';
+  customComplexityAdjustment?: 'Low' | 'Medium' | 'Hard';
   estimatedProductionTimeMinutes?: number;
 };
 
@@ -57,7 +57,7 @@ type OrderDetail = {
   status: OrderStatus;
   createdAt: string;
   updatedAt: string;
-  complexity?: 'Low' | 'Medium' | 'High';
+  complexity?: 'Low' | 'Medium' | 'Hard';
 };
 
 type OrderDetailResponse = {
@@ -126,8 +126,8 @@ function getPaymentStatusClass(status: PaymentStatus) {
   return 'bg-gray-100 text-gray-700';
 }
 
-function getComplexityClass(level: 'Low' | 'Medium' | 'High' | undefined) {
-  if (level === 'High') return 'bg-red-100 text-red-800';
+function getComplexityClass(level: 'Low' | 'Medium' | 'Hard' | undefined) {
+  if (level === 'Hard') return 'bg-red-100 text-red-800';
   if (level === 'Low') return 'bg-green-100 text-green-800';
   return 'bg-yellow-100 text-yellow-800';
 }

@@ -21,6 +21,8 @@ interface ProductTypeEditModalProps {
   cakeShapes?: CakeShape[];
 }
 
+const OVERSIZE_MINUTE_OPTIONS = [10, 20, 30, 40, 60] as const;
+
 export default function ProductTypeEditModal({
   isOpen,
   onClose,
@@ -73,7 +75,7 @@ export default function ProductTypeEditModal({
   const baseComplexity = classifyComplexityFromMinutes(baseTotalMinutes, activeThresholds);
   const baseComplexityLabel = baseComplexity || 'Not set';
   const complexityClass =
-    baseComplexityLabel === 'High'
+    baseComplexityLabel === 'Hard'
       ? 'bg-red-100 text-red-800'
       : baseComplexityLabel === 'Low'
         ? 'bg-green-100 text-green-800'
@@ -84,6 +86,15 @@ export default function ProductTypeEditModal({
     ...item,
     isActive: item.level === baseComplexityLabel,
   }));
+
+  const baseQuantityForOversizeRule = form.base_quantity ?? form.minQuantity;
+  const quantityThresholdForOversizeRule = typeof baseQuantityForOversizeRule === 'number' && baseQuantityForOversizeRule > 0
+    ? baseQuantityForOversizeRule * 2
+    : undefined;
+  const baseWeightForOversizeRule = form.base_weight ?? form.minWeight;
+  const weightThresholdForOversizeRule = typeof baseWeightForOversizeRule === 'number' && baseWeightForOversizeRule > 0
+    ? baseWeightForOversizeRule * 2
+    : undefined;
 
   if (!isOpen) return null;
 
@@ -131,9 +142,9 @@ export default function ProductTypeEditModal({
           </div>
 
           {effectivePricingMethod === 'perunit' && (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Unit Price *</label>
+                <label className="block min-h-10 text-sm font-semibold text-gray-700 mb-2 leading-tight">Unit Price *</label>
                 <input
                   type="number"
                   step="0.01"
@@ -144,7 +155,7 @@ export default function ProductTypeEditModal({
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Min Quantity</label>
+                <label className="block min-h-10 text-sm font-semibold text-gray-700 mb-2 leading-tight">Min Quantity</label>
                 <input
                   type="number"
                   value={derivedMeasurementType === 'quantity' ? (form.base_quantity || '') : (form.minQuantity || '')}
@@ -160,7 +171,7 @@ export default function ProductTypeEditModal({
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Max Quantity</label>
+                <label className="block min-h-10 text-sm font-semibold text-gray-700 mb-2 leading-tight">Max Quantity</label>
                 <input
                   type="number"
                   value={form.maxQuantity || ''}
@@ -168,13 +179,32 @@ export default function ProductTypeEditModal({
                   className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
                 />
               </div>
+              <div>
+                <label className="block min-h-10 text-sm font-semibold text-gray-700 mb-2 leading-tight">Extra Minutes / Unit (Oversize)</label>
+                <select
+                  value={form.oversizeQuantityExtraMinutesPerUnit ?? ''}
+                  onChange={(e) => {
+                    const parsed = toOptionalInt(e.target.value);
+                    setForm({
+                      ...form,
+                      oversizeQuantityExtraMinutesPerUnit: parsed === undefined ? undefined : Math.max(parsed, 0),
+                    });
+                  }}
+                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
+                >
+                  {OVERSIZE_MINUTE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>{`+${option}m`}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Applied per extra unit above 2x base quantity.</p>
+              </div>
             </div>
           )}
 
           {effectivePricingMethod === 'perkg' && (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Price Per Kg *</label>
+                <label className="block min-h-10 text-sm font-semibold text-gray-700 mb-2 leading-tight">Price Per Kg *</label>
                 <input
                   type="number"
                   step="0.01"
@@ -185,7 +215,7 @@ export default function ProductTypeEditModal({
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Min Weight (kg)</label>
+                <label className="block min-h-10 text-sm font-semibold text-gray-700 mb-2 leading-tight">Min Weight (kg)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -203,7 +233,7 @@ export default function ProductTypeEditModal({
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Max Weight (kg)</label>
+                <label className="block min-h-10 text-sm font-semibold text-gray-700 mb-2 leading-tight">Max Weight (kg)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -212,14 +242,56 @@ export default function ProductTypeEditModal({
                   className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
                 />
               </div>
+              <div>
+                <label className="block min-h-10 text-sm font-semibold text-gray-700 mb-2 leading-tight">Extra Minutes (Oversize)</label>
+                <select
+                  value={form.oversizeWeightExtraMinutes ?? ''}
+                  onChange={(e) => {
+                    const parsed = toOptionalInt(e.target.value);
+                    setForm({
+                      ...form,
+                      oversizeWeightExtraMinutes: parsed === undefined ? undefined : Math.max(parsed, 0),
+                    });
+                  }}
+                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
+                >
+                  {OVERSIZE_MINUTE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>{`+${option}m`}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Applied above 2x base weight.</p>
+              </div>
             </div>
           )}
+
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-1">
+            <p className="font-semibold">Oversize Rule Preview</p>
+            {effectivePricingMethod === 'perunit' ? (
+              <>
+                <p>Oversize applies only when order quantity is greater than 2x base quantity.</p>
+                <p>At exactly 2x, no oversize minutes are added.</p>
+                <p>Formula: ceil(order quantity - (2 * base quantity)) * selected extra minutes.</p>
+                {typeof quantityThresholdForOversizeRule === 'number' && (
+                  <p>Current threshold: order quantity must be greater than {quantityThresholdForOversizeRule} units.</p>
+                )}
+              </>
+            ) : (
+              <>
+                <p>Oversize applies only when order weight is greater than 2x base weight.</p>
+                <p>At exactly 2x, no oversize minutes are added.</p>
+                <p>Formula: add selected extra minutes once when weight is above threshold.</p>
+                {typeof weightThresholdForOversizeRule === 'number' && (
+                  <p>Current threshold: order weight must be greater than {weightThresholdForOversizeRule} kg.</p>
+                )}
+              </>
+            )}
+          </div>
 
           <div className="border border-gray-200 rounded-lg p-4 space-y-3">
             <h4 className="text-sm font-semibold text-gray-800">Production Time Measurement Basis</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Time Measurement Type (auto from pricing method)</label>
+                <label className="block min-h-10 text-sm font-semibold text-gray-700 mb-2 leading-tight">Time Measurement Type (auto from pricing method)</label>
                 <input
                   type="text"
                   value={derivedMeasurementType === 'weight' ? 'Weight' : 'Quantity'}
@@ -230,7 +302,7 @@ export default function ProductTypeEditModal({
 
               {derivedMeasurementType === 'weight' ? (
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Base Weight (kg) (auto from Min Weight)</label>
+                  <label className="block min-h-10 text-sm font-semibold text-gray-700 mb-2 leading-tight">Base Weight (kg) (auto from Min Weight)</label>
                   <input
                     type="text"
                     value={form.minWeight ?? form.base_weight ?? ''}
@@ -240,7 +312,7 @@ export default function ProductTypeEditModal({
                 </div>
               ) : (
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Base Quantity *</label>
+                  <label className="block min-h-10 text-sm font-semibold text-gray-700 mb-2 leading-tight">Base Quantity *</label>
                   <input
                     type="number"
                     min="1"

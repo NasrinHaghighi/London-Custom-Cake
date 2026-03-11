@@ -29,8 +29,8 @@ function dayClass(d: Date) {
   return 'bg-green-50 border-green-200';
 }
 
-function complexityBorder(complexity?: 'Low' | 'Medium' | 'High') {
-  if (complexity === 'High') return 'border-2 border-red-500';
+function complexityBorder(complexity?: 'Low' | 'Medium' | 'Hard') {
+  if (complexity === 'Hard') return 'border-2 border-red-500';
   if (complexity === 'Medium') return 'border-2 border-orange-400';
   return 'border border-gray-200';
 }
@@ -42,15 +42,15 @@ function paymentStatusClass(status?: 'unpaid' | 'partial' | 'paid') {
   return 'bg-gray-100 text-gray-700';
 }
 
-function cardBackgroundColor(complexity?: 'Low' | 'Medium' | 'High') {
-  if (complexity === 'High') return 'bg-red-50';
+function cardBackgroundColor(complexity?: 'Low' | 'Medium' | 'Hard') {
+  if (complexity === 'Hard') return 'bg-red-50';
   if (complexity === 'Medium') return 'bg-amber-50';
   if (complexity === 'Low') return 'bg-green-50';
   return 'bg-gray-50';
 }
 
-function complexityBadgeClass(complexity?: 'Low' | 'Medium' | 'High') {
-  if (complexity === 'High') return 'bg-red-200 text-red-900';
+function complexityBadgeClass(complexity?: 'Low' | 'Medium' | 'Hard') {
+  if (complexity === 'Hard') return 'bg-red-200 text-red-900';
   if (complexity === 'Medium') return 'bg-amber-200 text-amber-900';
   if (complexity === 'Low') return 'bg-green-200 text-green-900';
   return 'bg-gray-200 text-gray-900';
@@ -219,7 +219,7 @@ export default function CalendarView({
           </div>
           <div className="flex items-center gap-1.5">
             <span className="h-3 w-4 rounded-sm border-2 border-red-500 bg-red-50" />
-            <span>High Complexity Card</span>
+            <span>Hard Complexity Card</span>
           </div>
         </div>
       </div>

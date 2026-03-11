@@ -46,7 +46,7 @@ export function formatDurationMinutes(value?: number) {
   return `${hours}h ${minutes}m`;
 }
 
-export function getComplexityFromMinutes(value?: number): 'Low' | 'Medium' | 'High' | undefined {
+export function getComplexityFromMinutes(value?: number): 'Low' | 'Medium' | 'Hard' | undefined {
   if (typeof value !== 'number' || value <= 0) {
     return undefined;
   }
@@ -59,7 +59,7 @@ export function getComplexityFromMinutes(value?: number): 'Low' | 'Medium' | 'Hi
     return 'Medium';
   }
 
-  return 'High';
+  return 'Hard';
 }
 
 export function toDateInputValue(date: Date): string {
@@ -144,8 +144,8 @@ export function getPaymentStatusClass(status: PaymentStatus) {
   return 'bg-gray-100 text-gray-700';
 }
 
-export function getComplexityClass(level: 'Low' | 'Medium' | 'High' | undefined) {
-  if (level === 'High') return 'bg-red-100 text-red-800';
+export function getComplexityClass(level: 'Low' | 'Medium' | 'Hard' | undefined) {
+  if (level === 'Hard') return 'bg-red-100 text-red-800';
   if (level === 'Low') return 'bg-green-100 text-green-800';
   // Medium or undefined default
   return 'bg-yellow-100 text-yellow-800';

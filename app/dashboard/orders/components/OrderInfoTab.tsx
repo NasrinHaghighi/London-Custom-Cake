@@ -67,6 +67,9 @@ interface OrderDraft {
   weight: number;
   specialInstructions: string;
   customDecorations: string;
+  decorationComplexity: 'none' | 'simple' | 'detailed' | 'premium';
+  customTextMessage: string;
+  textType: 'none' | 'buttercream' | 'fondantLetters' | 'chocolatePiping';
   referenceImages: string[];
 }
 
@@ -112,6 +115,23 @@ function formatHoursLabel(totalMinutes: number): string {
   }
 
   return `${hours}h ${minutes}m`;
+}
+
+function formatKg(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) {
+    return '0';
+  }
+
+  const rounded = Math.round(value * 100) / 100;
+  return Number.isInteger(rounded) ? `${rounded}` : `${rounded}`;
+}
+
+function formatUnits(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) {
+    return '0';
+  }
+
+  return `${Math.round(value)}`;
 }
 
 function formatOrderItemLine(item: ExistingOrderItem): string {
@@ -246,6 +266,9 @@ export default function OrderItemsTab({
     weight: 1,
     specialInstructions: '',
     customDecorations: '',
+    decorationComplexity: 'none',
+    customTextMessage: '',
+    textType: 'none',
     referenceImages: [],
   });
   const [draft, setDraft] = useState<OrderDraft>({
@@ -256,6 +279,9 @@ export default function OrderItemsTab({
     weight: 1,
     specialInstructions: '',
     customDecorations: '',
+    decorationComplexity: 'none',
+    customTextMessage: '',
+    textType: 'none',
     referenceImages: [],
   });
 
@@ -487,6 +513,142 @@ export default function OrderItemsTab({
 
   const canSaveEditedItem = editingItemIndex >= 0 && !editingConstraintError;
 
+  const draftBaseQuantityForOversizeRule = useMemo(() => {
+    if (selectedProductType?.pricingMethod !== 'perunit') {
+      return undefined;
+    }
+
+    const candidate = selectedProductType.base_quantity ?? selectedProductType.minQuantity;
+    return typeof candidate === 'number' && candidate > 0 ? candidate : undefined;
+  }, [selectedProductType]);
+
+  const draftOversizeThresholdQuantity = useMemo(() => {
+    if (typeof draftBaseQuantityForOversizeRule !== 'number') {
+      return undefined;
+    }
+
+    return draftBaseQuantityForOversizeRule * 2;
+  }, [draftBaseQuantityForOversizeRule]);
+
+  const draftOversizeQuantityWillApply = useMemo(() => {
+    if (typeof draftOversizeThresholdQuantity !== 'number') {
+      return false;
+    }
+
+    return draft.quantity > draftOversizeThresholdQuantity;
+  }, [draft.quantity, draftOversizeThresholdQuantity]);
+
+  const draftOversizeQuantityExtraPerUnit = useMemo(() => {
+    if (selectedProductType?.pricingMethod !== 'perunit') {
+      return 30;
+    }
+
+    const configured = selectedProductType.oversizeQuantityExtraMinutesPerUnit;
+    return typeof configured === 'number' && configured >= 0 ? Math.round(configured) : 30;
+  }, [selectedProductType]);
+
+  const draftBaseWeightForOversizeRule = useMemo(() => {
+    if (selectedProductType?.pricingMethod !== 'perkg') {
+      return undefined;
+    }
+
+    const candidate = selectedProductType.base_weight ?? selectedProductType.minWeight;
+    return typeof candidate === 'number' && candidate > 0 ? candidate : undefined;
+  }, [selectedProductType]);
+
+  const draftOversizeThresholdWeight = useMemo(() => {
+    if (typeof draftBaseWeightForOversizeRule !== 'number') {
+      return undefined;
+    }
+
+    return draftBaseWeightForOversizeRule * 2;
+  }, [draftBaseWeightForOversizeRule]);
+
+  const draftOversizeWillApply = useMemo(() => {
+    if (typeof draftOversizeThresholdWeight !== 'number') {
+      return false;
+    }
+
+    return draft.weight > draftOversizeThresholdWeight;
+  }, [draft.weight, draftOversizeThresholdWeight]);
+
+  const draftOversizeWeightExtraMinutes = useMemo(() => {
+    if (selectedProductType?.pricingMethod !== 'perkg') {
+      return 60;
+    }
+
+    const configured = selectedProductType.oversizeWeightExtraMinutes;
+    return typeof configured === 'number' && configured >= 0 ? Math.round(configured) : 60;
+  }, [selectedProductType]);
+
+  const editingBaseQuantityForOversizeRule = useMemo(() => {
+    if (editingProductType?.pricingMethod !== 'perunit') {
+      return undefined;
+    }
+
+    const candidate = editingProductType.base_quantity ?? editingProductType.minQuantity;
+    return typeof candidate === 'number' && candidate > 0 ? candidate : undefined;
+  }, [editingProductType]);
+
+  const editingOversizeThresholdQuantity = useMemo(() => {
+    if (typeof editingBaseQuantityForOversizeRule !== 'number') {
+      return undefined;
+    }
+
+    return editingBaseQuantityForOversizeRule * 2;
+  }, [editingBaseQuantityForOversizeRule]);
+
+  const editingOversizeQuantityWillApply = useMemo(() => {
+    if (typeof editingOversizeThresholdQuantity !== 'number') {
+      return false;
+    }
+
+    return editingDraft.quantity > editingOversizeThresholdQuantity;
+  }, [editingDraft.quantity, editingOversizeThresholdQuantity]);
+
+  const editingOversizeQuantityExtraPerUnit = useMemo(() => {
+    if (editingProductType?.pricingMethod !== 'perunit') {
+      return 30;
+    }
+
+    const configured = editingProductType.oversizeQuantityExtraMinutesPerUnit;
+    return typeof configured === 'number' && configured >= 0 ? Math.round(configured) : 30;
+  }, [editingProductType]);
+
+  const editingBaseWeightForOversizeRule = useMemo(() => {
+    if (editingProductType?.pricingMethod !== 'perkg') {
+      return undefined;
+    }
+
+    const candidate = editingProductType.base_weight ?? editingProductType.minWeight;
+    return typeof candidate === 'number' && candidate > 0 ? candidate : undefined;
+  }, [editingProductType]);
+
+  const editingOversizeThresholdWeight = useMemo(() => {
+    if (typeof editingBaseWeightForOversizeRule !== 'number') {
+      return undefined;
+    }
+
+    return editingBaseWeightForOversizeRule * 2;
+  }, [editingBaseWeightForOversizeRule]);
+
+  const editingOversizeWillApply = useMemo(() => {
+    if (typeof editingOversizeThresholdWeight !== 'number') {
+      return false;
+    }
+
+    return editingDraft.weight > editingOversizeThresholdWeight;
+  }, [editingDraft.weight, editingOversizeThresholdWeight]);
+
+  const editingOversizeWeightExtraMinutes = useMemo(() => {
+    if (editingProductType?.pricingMethod !== 'perkg') {
+      return 60;
+    }
+
+    const configured = editingProductType.oversizeWeightExtraMinutes;
+    return typeof configured === 'number' && configured >= 0 ? Math.round(configured) : 60;
+  }, [editingProductType]);
+
   const subTotal = useMemo(
     () => Math.round(items.reduce((sum, item) => sum + (item.lineTotal || 0), 0) * 100) / 100,
     [items]
@@ -500,6 +662,10 @@ export default function OrderItemsTab({
       productTypeId: item.productTypeId,
       quantity: item.quantity,
       weight: item.weight,
+      customDecorations: item.customDecorations,
+      decorationComplexity: item.decorationComplexity,
+      customTextMessage: item.customTextMessage,
+      textType: item.textType,
     })),
     [items]
   );
@@ -520,9 +686,9 @@ export default function OrderItemsTab({
     : '';
 
   const productionEstimateByIndex = useMemo(() => {
-    const estimateMap = new Map<number, number>();
+    const estimateMap = new Map<number, (typeof productionEstimate.itemEstimates)[number]>();
     (productionEstimate?.itemEstimates || []).forEach((estimate) => {
-      estimateMap.set(estimate.itemIndex, estimate.minutes);
+      estimateMap.set(estimate.itemIndex, estimate);
     });
     return estimateMap;
   }, [productionEstimate?.itemEstimates]);
@@ -683,6 +849,9 @@ export default function OrderItemsTab({
       weight: isPerUnit ? undefined : draft.weight,
       specialInstructions: draft.specialInstructions,
       customDecorations: draft.customDecorations || undefined,
+      decorationComplexity: draft.decorationComplexity,
+      customTextMessage: draft.customTextMessage || undefined,
+      textType: draft.textType,
       referenceImages: draft.referenceImages.length ? draft.referenceImages : undefined,
       lineTotal: draftLineTotal,
     };
@@ -696,6 +865,9 @@ export default function OrderItemsTab({
       weight: 1,
       specialInstructions: '',
       customDecorations: '',
+      decorationComplexity: 'none',
+      customTextMessage: '',
+      textType: 'none',
       referenceImages: [],
     });
     setReferenceImageError('');
@@ -719,6 +891,9 @@ export default function OrderItemsTab({
       weight: item.weight || 1,
       specialInstructions: item.specialInstructions || '',
       customDecorations: item.customDecorations || '',
+      decorationComplexity: item.decorationComplexity || 'none',
+      customTextMessage: item.customTextMessage || '',
+      textType: item.textType || 'none',
       referenceImages: item.referenceImages || [],
     });
     setEditReferenceImageError('');
@@ -736,6 +911,9 @@ export default function OrderItemsTab({
       weight: 1,
       specialInstructions: '',
       customDecorations: '',
+      decorationComplexity: 'none',
+      customTextMessage: '',
+      textType: 'none',
       referenceImages: [],
     });
     setEditReferenceImageError('');
@@ -824,6 +1002,9 @@ export default function OrderItemsTab({
       cakeShapeId: editingRequiresShapeSelection ? editingDraft.cakeShapeId : undefined,
       specialInstructions: editingDraft.specialInstructions,
       customDecorations: editingDraft.customDecorations || undefined,
+      decorationComplexity: editingDraft.decorationComplexity,
+      customTextMessage: editingDraft.customTextMessage || undefined,
+      textType: editingDraft.textType,
       referenceImages: editingDraft.referenceImages.length ? editingDraft.referenceImages : undefined,
       quantity: isPerUnit ? editingDraft.quantity : undefined,
       weight: isPerUnit ? undefined : editingDraft.weight,
@@ -912,6 +1093,9 @@ export default function OrderItemsTab({
           weight: item.weight,
           specialInstructions: item.specialInstructions || '',
           customDecorations: item.customDecorations || '',
+          decorationComplexity: item.decorationComplexity || 'none',
+          customTextMessage: item.customTextMessage || '',
+          textType: item.textType || 'none',
           referenceImages: item.referenceImages || [],
         })),
         notes: orderNotes,
@@ -1121,6 +1305,13 @@ export default function OrderItemsTab({
                   onChange={(e) => setDraft({ ...draft, quantity: Number(e.target.value) || 0 })}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />
+                {typeof draftOversizeThresholdQuantity === 'number' && (
+                  <p className={`text-xs mt-1 ${draftOversizeQuantityWillApply ? 'text-orange-700 font-medium' : 'text-gray-600'}`}>
+                    {draftOversizeQuantityWillApply
+                      ? `📦 Oversize quantity adjustment: +${draftOversizeQuantityExtraPerUnit}m per extra unit above ${formatUnits(draftOversizeThresholdQuantity)}.`
+                      : `📦 Oversize rule: +${draftOversizeQuantityExtraPerUnit}m per extra unit above ${formatUnits(draftOversizeThresholdQuantity)} units.`}
+                  </p>
+                )}
               </div>
             ) : (
               <div>
@@ -1139,6 +1330,13 @@ export default function OrderItemsTab({
                   }}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />
+                {typeof draftOversizeThresholdWeight === 'number' && (
+                  <p className={`text-xs mt-1 ${draftOversizeWillApply ? 'text-orange-700 font-medium' : 'text-gray-600'}`}>
+                    {draftOversizeWillApply
+                      ? `⚖ Oversize weight adjustment: +${draftOversizeWeightExtraMinutes}m (weight above ${formatKg(draftOversizeThresholdWeight)}kg).`
+                      : `⚖ Oversize rule: +${draftOversizeWeightExtraMinutes}m applies only above ${formatKg(draftOversizeThresholdWeight)}kg.`}
+                  </p>
+                )}
               </div>
             )}
 
@@ -1159,19 +1357,59 @@ export default function OrderItemsTab({
         {selectedProductType && (
           <div className="border border-blue-200 bg-blue-50 rounded-lg p-4 space-y-3">
             <h4 className="font-medium text-blue-900 text-sm">✨ Custom Decorations (Optional)</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Describe custom decorations</label>
+                <input
+                  type="text"
+                  value={draft.customDecorations}
+                  onChange={(e) => setDraft({ ...draft, customDecorations: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  placeholder="e.g., gold leaf, custom piping, intricate design..."
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Describe custom decorations</label>
-              <input
-                type="text"
-                value={draft.customDecorations}
-                onChange={(e) => setDraft({ ...draft, customDecorations: e.target.value })}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                placeholder="e.g., gold leaf, custom piping, intricate design..."
-              />
-            </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Decoration complexity</label>
+                <select
+                  value={draft.decorationComplexity}
+                  onChange={(e) => setDraft({ ...draft, decorationComplexity: e.target.value as OrderDraft['decorationComplexity'] })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
+                >
+                  <option value="none">None</option>
+                  <option value="simple">Simple (+10m)</option>
+                  <option value="detailed">Detailed (+25m)</option>
+                  <option value="premium">Premium (+45m)</option>
+                </select>
+                <p className="text-xs text-gray-600 mt-1">Used to add extra preparation time for custom decoration work.</p>
+              </div>
 
-            <div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Text on cake (optional)</label>
+                <input
+                  type="text"
+                  value={draft.customTextMessage}
+                  onChange={(e) => setDraft({ ...draft, customTextMessage: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  placeholder="e.g., Happy Birthday Sara"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Text type complexity</label>
+                <select
+                  value={draft.textType}
+                  onChange={(e) => setDraft({ ...draft, textType: e.target.value as OrderDraft['textType'] })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
+                >
+                  <option value="none">None</option>
+                  <option value="buttercream">Buttercream (+5m)</option>
+                  <option value="fondantLetters">Fondant Letters (+15 to +25m)</option>
+                  <option value="chocolatePiping">Chocolate Piping (+10m)</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
               <label className="block text-xs font-medium text-gray-700 mb-1">Reference Images (optional)</label>
               <input
                 ref={referenceImagesInputRef}
@@ -1207,6 +1445,7 @@ export default function OrderItemsTab({
                   ))}
                 </div>
               )}
+              </div>
             </div>
 
           </div>
@@ -1239,7 +1478,8 @@ export default function OrderItemsTab({
               const product = productTypes.find((p) => p._id === item.productTypeId);
               const flavor = flavors.find((f) => f._id === item.flavorId);
               const shape = cakeShapes.find((s) => s._id === item.cakeShapeId);
-              const itemEstimatedMinutes = productionEstimateByIndex.get(index);
+              const itemEstimate = productionEstimateByIndex.get(index);
+              const itemEstimatedMinutes = itemEstimate?.minutes;
               return (
                 <div key={item.id} className="flex items-center justify-between border border-gray-200 rounded-md p-3">
                   <div className="text-sm">
@@ -1258,8 +1498,63 @@ export default function OrderItemsTab({
                             : '-'}
                       </span>
                     </p>
+                    {product?.pricingMethod === 'perkg' && (() => {
+                      const baseWeightForRule = product.base_weight ?? product.minWeight;
+                      if (typeof baseWeightForRule !== 'number' || baseWeightForRule <= 0) {
+                        return null;
+                      }
+
+                      const thresholdWeight = baseWeightForRule * 2;
+                      const oversizeExtraMinutes = itemEstimate?.oversizeExtraMinutes || 0;
+                      const oversizeWeightExtraMinutes = typeof product.oversizeWeightExtraMinutes === 'number' && product.oversizeWeightExtraMinutes >= 0
+                        ? Math.round(product.oversizeWeightExtraMinutes)
+                        : 60;
+
+                      return (
+                        <p className={`text-xs mt-1 ${oversizeExtraMinutes > 0 ? 'text-orange-700 font-medium' : 'text-gray-600'}`}>
+                          {oversizeExtraMinutes > 0
+                            ? `⚖ Oversize weight adjustment: +${oversizeExtraMinutes}m (>${formatKg(thresholdWeight)}kg)`
+                            : `⚖ Oversize rule: +${oversizeWeightExtraMinutes}m above ${formatKg(thresholdWeight)}kg.`}
+                        </p>
+                      );
+                    })()}
+                    {product?.pricingMethod === 'perunit' && (() => {
+                      const baseQuantityForRule = product.base_quantity ?? product.minQuantity;
+                      if (typeof baseQuantityForRule !== 'number' || baseQuantityForRule <= 0) {
+                        return null;
+                      }
+
+                      const thresholdQuantity = baseQuantityForRule * 2;
+                      const oversizeExtraMinutes = itemEstimate?.oversizeExtraMinutes || 0;
+                      const oversizeQuantityExtraPerUnit = typeof product.oversizeQuantityExtraMinutesPerUnit === 'number' && product.oversizeQuantityExtraMinutesPerUnit >= 0
+                        ? Math.round(product.oversizeQuantityExtraMinutesPerUnit)
+                        : 30;
+
+                      return (
+                        <p className={`text-xs mt-1 ${oversizeExtraMinutes > 0 ? 'text-orange-700 font-medium' : 'text-gray-600'}`}>
+                          {oversizeExtraMinutes > 0
+                            ? `📦 Oversize quantity adjustment: +${oversizeExtraMinutes}m (>${formatUnits(thresholdQuantity)} units)`
+                            : `📦 Oversize rule: +${oversizeQuantityExtraPerUnit}m per extra unit above ${formatUnits(thresholdQuantity)} units.`}
+                        </p>
+                      );
+                    })()}
                     {item.customDecorations && (
                       <p className="text-blue-600 text-xs mt-1 font-medium">🎨 Decoration: {item.customDecorations}</p>
+                    )}
+                    {item.decorationComplexity && item.decorationComplexity !== 'none' && (
+                      <p className="text-blue-700 text-xs mt-1 font-medium capitalize">
+                        Decoration complexity: {item.decorationComplexity}
+                      </p>
+                    )}
+                    {item.customTextMessage && (
+                      <p className="text-indigo-700 text-xs mt-1 font-medium">
+                        Text: "{item.customTextMessage}"
+                      </p>
+                    )}
+                    {item.textType && item.textType !== 'none' && (
+                      <p className="text-indigo-800 text-xs mt-1 font-medium capitalize">
+                        Text type: {item.textType}
+                      </p>
                     )}
                     {item.referenceImages && item.referenceImages.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-2">
@@ -1453,6 +1748,13 @@ export default function OrderItemsTab({
                         }}
                         className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
                       />
+                      {typeof editingOversizeThresholdQuantity === 'number' && (
+                        <p className={`text-xs mt-1 ${editingOversizeQuantityWillApply ? 'text-orange-700 font-medium' : 'text-gray-600'}`}>
+                          {editingOversizeQuantityWillApply
+                            ? `📦 Oversize quantity adjustment: +${editingOversizeQuantityExtraPerUnit}m per extra unit above ${formatUnits(editingOversizeThresholdQuantity)}.`
+                            : `📦 Oversize rule: +${editingOversizeQuantityExtraPerUnit}m per extra unit above ${formatUnits(editingOversizeThresholdQuantity)} units.`}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div>
@@ -1475,6 +1777,13 @@ export default function OrderItemsTab({
                         }}
                         className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
                       />
+                      {typeof editingOversizeThresholdWeight === 'number' && (
+                        <p className={`text-xs mt-1 ${editingOversizeWillApply ? 'text-orange-700 font-medium' : 'text-gray-600'}`}>
+                          {editingOversizeWillApply
+                            ? `⚖ Oversize weight adjustment: +${editingOversizeWeightExtraMinutes}m (weight above ${formatKg(editingOversizeThresholdWeight)}kg).`
+                            : `⚖ Oversize rule: +${editingOversizeWeightExtraMinutes}m applies only above ${formatKg(editingOversizeThresholdWeight)}kg.`}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1513,19 +1822,74 @@ export default function OrderItemsTab({
               {/* Custom Decorations */}
               <div className="border border-blue-200 bg-blue-50 rounded-lg p-4 space-y-3">
                 <h4 className="font-medium text-blue-900 text-sm">✨ Custom Decorations (Optional)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Describe custom decorations</label>
+                    <input
+                      type="text"
+                      value={editingDraft.customDecorations}
+                      onChange={(e) => {
+                        setEditFormError('');
+                        setEditingDraft({ ...editingDraft, customDecorations: e.target.value });
+                      }}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                      placeholder="e.g., gold leaf, custom piping, intricate design..."
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Describe custom decorations</label>
-                  <input
-                    type="text"
-                    value={editingDraft.customDecorations}
-                    onChange={(e) => {
-                      setEditFormError('');
-                      setEditingDraft({ ...editingDraft, customDecorations: e.target.value });
-                    }}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                    placeholder="e.g., gold leaf, custom piping, intricate design..."
-                  />
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Decoration complexity</label>
+                    <select
+                      value={editingDraft.decorationComplexity}
+                      onChange={(e) => {
+                        setEditFormError('');
+                        setEditingDraft({
+                          ...editingDraft,
+                          decorationComplexity: e.target.value as OrderDraft['decorationComplexity'],
+                        });
+                      }}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
+                    >
+                      <option value="none">None</option>
+                      <option value="simple">Simple (+10m)</option>
+                      <option value="detailed">Detailed (+25m)</option>
+                      <option value="premium">Premium (+45m)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Text on cake (optional)</label>
+                    <input
+                      type="text"
+                      value={editingDraft.customTextMessage}
+                      onChange={(e) => {
+                        setEditFormError('');
+                        setEditingDraft({ ...editingDraft, customTextMessage: e.target.value });
+                      }}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                      placeholder="e.g., Happy Birthday Sara"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Text type complexity</label>
+                    <select
+                      value={editingDraft.textType}
+                      onChange={(e) => {
+                        setEditFormError('');
+                        setEditingDraft({
+                          ...editingDraft,
+                          textType: e.target.value as OrderDraft['textType'],
+                        });
+                      }}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
+                    >
+                      <option value="none">None</option>
+                      <option value="buttercream">Buttercream (+5m)</option>
+                      <option value="fondantLetters">Fondant Letters (+15 to +25m)</option>
+                      <option value="chocolatePiping">Chocolate Piping (+10m)</option>
+                    </select>
+                  </div>
                 </div>
 
               </div>

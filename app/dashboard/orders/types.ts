@@ -48,6 +48,12 @@ export interface OrderItem {
   weight?: number;
   specialInstructions: string;
   customDecorations?: string;
+  decorationComplexity?: 'none' | 'simple' | 'detailed' | 'premium';
+  decorationExtraMinutes?: number;
+  customTextMessage?: string;
+  textType?: 'none' | 'buttercream' | 'fondantLetters' | 'chocolatePiping';
+  textExtraMinutes?: number;
+  oversizeExtraMinutes?: number;
   referenceImages?: string[];
   lineTotal?: number;
 }

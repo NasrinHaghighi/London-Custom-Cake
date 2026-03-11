@@ -30,12 +30,15 @@ export const orderItemInputSchema = z.object({
   weight: z.number().positive('Weight must be greater than 0').optional(),
   specialInstructions: z.string().max(1000, 'Special instructions too long').optional().default(''),
   customDecorations: z.string().max(500, 'Custom decorations too long').optional().default(''),
+  decorationComplexity: z.enum(['none', 'simple', 'detailed', 'premium']).optional().default('none'),
+  customTextMessage: z.string().max(200, 'Custom text message too long').optional().default(''),
+  textType: z.enum(['none', 'buttercream', 'fondantLetters', 'chocolatePiping']).optional().default('none'),
   referenceImages: z
     .array(referenceImageSchema)
     .max(maxReferenceImages, `A maximum of ${maxReferenceImages} reference images is allowed per order item`)
     .optional()
     .default([]),
-  customComplexityAdjustment: z.enum(['Low', 'Medium', 'High']).optional(),
+  customComplexityAdjustment: z.enum(['Low', 'Medium', 'Hard']).optional(),
 }).refine((data) => Boolean(data.quantity) || Boolean(data.weight), {
   message: 'Either quantity or weight is required',
   path: ['quantity'],
@@ -90,6 +93,10 @@ export const estimateOrderProductionTimeSchema = z.object({
       productTypeId: z.string().regex(objectIdRegex, 'Invalid product type ID'),
       quantity: z.number().positive('Quantity must be greater than 0').optional(),
       weight: z.number().positive('Weight must be greater than 0').optional(),
+      customDecorations: z.string().max(500, 'Custom decorations too long').optional().default(''),
+      decorationComplexity: z.enum(['none', 'simple', 'detailed', 'premium']).optional().default('none'),
+      customTextMessage: z.string().max(200, 'Custom text message too long').optional().default(''),
+      textType: z.enum(['none', 'buttercream', 'fondantLetters', 'chocolatePiping']).optional().default('none'),
     }).refine((data) => data.quantity !== undefined || data.weight !== undefined, {
       message: 'Either quantity or weight is required',
       path: ['quantity'],

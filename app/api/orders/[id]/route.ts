@@ -53,19 +53,25 @@ export async function GET(
     };
 
     // derive complexity for single order detail
-    const deriveComplexity = (o: any): 'Low' | 'Medium' | 'High' => {
+    const deriveComplexity = (o: any): 'Low' | 'Medium' | 'Hard' => {
       const estimatedMinutes = getOrderProductionMinutes(o);
       const classifiedFromMinutes = classifyComplexityFromMinutes(estimatedMinutes, thresholds);
       if (classifiedFromMinutes) {
         return classifiedFromMinutes;
       }
 
-      const levels = ['Low', 'Medium', 'High'] as const;
+      const levels = ['Low', 'Medium', 'Hard'] as const;
       let highestIndex = 1;
 
       if (Array.isArray(o.items)) {
         for (const item of o.items) {
-          const level: 'Low' | 'Medium' | 'High' = item.customComplexityAdjustment || 'Medium';
+          const rawLevel = item.customComplexityAdjustment as string | undefined;
+          const level: 'Low' | 'Medium' | 'Hard' =
+            rawLevel === 'Low' || rawLevel === 'Medium' || rawLevel === 'Hard'
+              ? rawLevel
+              : rawLevel
+                ? 'Hard'
+                : 'Medium';
           const index = levels.indexOf(level);
           if (index > highestIndex) {
             highestIndex = index;

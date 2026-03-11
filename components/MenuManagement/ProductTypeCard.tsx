@@ -90,6 +90,9 @@ export default function ProductTypeCard({ productType, onEdit, onDelete, isDelet
             {productType.maxQuantity && (
               <p className="text-gray-500">Max: {productType.maxQuantity} units</p>
             )}
+            <p className="text-gray-500">
+              Oversize: +{productType.oversizeQuantityExtraMinutesPerUnit ?? 30}m per extra unit above 2x base qty
+            </p>
           </>
         )}
 
@@ -104,6 +107,9 @@ export default function ProductTypeCard({ productType, onEdit, onDelete, isDelet
             {productType.maxWeight && (
               <p className="text-gray-500">Max: {productType.maxWeight}kg</p>
             )}
+            <p className="text-gray-500">
+              Oversize: +{productType.oversizeWeightExtraMinutes ?? 60}m above 2x base weight
+            </p>
           </>
         )}
       </div>

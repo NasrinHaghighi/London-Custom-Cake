@@ -1,4 +1,4 @@
-export type ComplexityLevel = 'Low' | 'Medium' | 'High';
+export type ComplexityLevel = 'Low' | 'Medium' | 'Hard';
 
 export interface OrderItem {
   productTypeId: string;
@@ -15,6 +15,12 @@ export interface OrderItem {
   lineTotal: number;
   specialInstructions?: string;
   customDecorations?: string;
+  decorationComplexity?: 'none' | 'simple' | 'detailed' | 'premium';
+  decorationExtraMinutes?: number;
+  customTextMessage?: string;
+  textType?: 'none' | 'buttercream' | 'fondantLetters' | 'chocolatePiping';
+  textExtraMinutes?: number;
+  oversizeExtraMinutes?: number;
   referenceImages?: string[];
   customComplexityAdjustment?: ComplexityLevel;
   estimatedProductionTimeMinutes?: number;
@@ -63,6 +69,10 @@ export interface OrderProductionEstimateItemInput {
   productTypeId: string;
   quantity?: number;
   weight?: number;
+  customDecorations?: string;
+  decorationComplexity?: 'none' | 'simple' | 'detailed' | 'premium';
+  customTextMessage?: string;
+  textType?: 'none' | 'buttercream' | 'fondantLetters' | 'chocolatePiping';
 }
 
 export interface OrderProductionEstimateItem {
@@ -70,6 +80,12 @@ export interface OrderProductionEstimateItem {
   productTypeId: string;
   productTypeName: string;
   minutes: number;
+  baseMinutes?: number;
+  decorationComplexity?: 'none' | 'simple' | 'detailed' | 'premium';
+  decorationExtraMinutes?: number;
+  textType?: 'none' | 'buttercream' | 'fondantLetters' | 'chocolatePiping';
+  textExtraMinutes?: number;
+  oversizeExtraMinutes?: number;
 }
 
 interface OrderProductionEstimateResponse {

@@ -1,5 +1,5 @@
 type ComplexityRange = {
-  level: 'Not set' | 'Low' | 'Medium' | 'High';
+  level: 'Not set' | 'Low' | 'Medium' | 'Hard';
   range: string;
 };
 

@@ -14,6 +14,7 @@ import ProductTypeFlavor from '@/lib/models/productTypeFlavorSchema';
 import { createOrderSchema, orderQuerySchema } from '@/lib/validators/order';
 import { classifyComplexityFromMinutes } from '@/lib/complexity';
 import { getComplexityThresholdSettings } from '@/lib/services/complexityThresholdSettings';
+import { calculateItemProductionTimeWithModifiers } from '@/lib/services/orderTimeModifiers';
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
@@ -71,20 +72,25 @@ function getOrderProductionMinutes(order: any): number | undefined {
 function deriveOrderComplexityWithThresholds(
   order: any,
   thresholds: { lowMaxMinutes: number; mediumMaxMinutes: number }
-): 'Low' | 'Medium' | 'High' {
+): 'Low' | 'Medium' | 'Hard' {
   const estimatedMinutes = getOrderProductionMinutes(order);
   const classifiedFromMinutes = classifyComplexityFromMinutes(estimatedMinutes, thresholds);
   if (classifiedFromMinutes) {
     return classifiedFromMinutes;
   }
 
-  const levels = ['Low', 'Medium', 'High'] as const;
+  const levels = ['Low', 'Medium', 'Hard'] as const;
   let highestIndex = 1;
 
   if (Array.isArray(order.items)) {
     for (const item of order.items) {
-      const level: 'Low' | 'Medium' | 'High' =
-        (item.customComplexityAdjustment as 'Low' | 'Medium' | 'High') || 'Medium';
+      const rawLevel = item.customComplexityAdjustment as string | undefined;
+      const level: 'Low' | 'Medium' | 'Hard' =
+        rawLevel === 'Low' || rawLevel === 'Medium' || rawLevel === 'Hard'
+          ? rawLevel
+          : rawLevel
+            ? 'Hard'
+            : 'Medium';
       const index = levels.indexOf(level);
       if (index > highestIndex) {
         highestIndex = index;
@@ -346,9 +352,23 @@ export async function POST(request: NextRequest) {
       }
 
       const lineTotal = round2(unitBasePrice + flavorExtraPrice);
-      const estimatedProductionTimeMinutes = calculateProductionTime(product, {
+      const baseProductionMinutes = calculateProductionTime(product, {
         order_weight: item.weight,
         order_quantity: item.quantity,
+      });
+
+      const withModifiers = calculateItemProductionTimeWithModifiers(baseProductionMinutes, {
+        decorationComplexity: item.decorationComplexity,
+        customDecorations: item.customDecorations,
+        textType: item.textType,
+        customTextMessage: item.customTextMessage,
+        pricingMethod: product.pricingMethod,
+        baseWeight: product.base_weight ?? product.minWeight,
+        orderWeight: item.weight,
+        baseQuantity: product.base_quantity ?? product.minQuantity,
+        orderQuantity: item.quantity,
+        oversizeWeightExtraMinutes: product.oversizeWeightExtraMinutes,
+        oversizeQuantityExtraMinutesPerUnit: product.oversizeQuantityExtraMinutesPerUnit,
       });
 
       return {
@@ -366,11 +386,17 @@ export async function POST(request: NextRequest) {
         lineTotal,
         specialInstructions: item.specialInstructions || '',
         customDecorations: item.customDecorations || '',
+        decorationComplexity: withModifiers.decorationComplexity,
+        decorationExtraMinutes: withModifiers.decorationExtraMinutes,
+        customTextMessage: item.customTextMessage || '',
+        textType: withModifiers.textType,
+        textExtraMinutes: withModifiers.textExtraMinutes,
+        oversizeExtraMinutes: withModifiers.oversizeExtraMinutes,
         referenceImages: Array.isArray(item.referenceImages)
           ? Array.from(new Set(item.referenceImages.map((imageUrl) => imageUrl.trim()))).filter(Boolean)
           : [],
         customComplexityAdjustment: item.customComplexityAdjustment || undefined,
-        estimatedProductionTimeMinutes,
+        estimatedProductionTimeMinutes: withModifiers.totalProductionMinutes,
       };
     });
 

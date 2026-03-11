@@ -1,4 +1,4 @@
-export type ComplexityLevel = 'Low' | 'Medium' | 'High';
+export type ComplexityLevel = 'Low' | 'Medium' | 'Hard';
 export type ComplexityLevelWithNotSet = ComplexityLevel | 'Not set';
 
 export interface ComplexityThresholds {
@@ -48,7 +48,7 @@ export function classifyComplexityFromMinutes(
     return 'Medium';
   }
 
-  return 'High';
+  return 'Hard';
 }
 
 function formatBoundaryMinutes(minutes: number): string {
@@ -75,6 +75,6 @@ export function getComplexityRanges(thresholds: ComplexityThresholds) {
       level: 'Medium' as const,
       range: `${formatBoundaryMinutes(thresholds.lowMaxMinutes)} - ${formatBoundaryMinutes(thresholds.mediumMaxMinutes)}`,
     },
-    { level: 'High' as const, range: `>${formatBoundaryMinutes(thresholds.mediumMaxMinutes)}` },
+    { level: 'Hard' as const, range: `>${formatBoundaryMinutes(thresholds.mediumMaxMinutes)}` },
   ];
 }

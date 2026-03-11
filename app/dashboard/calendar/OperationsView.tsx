@@ -162,7 +162,7 @@ export default function OperationsView({
         }
 
         // 3. Higher complexity
-        const complexityOrder = { High: 3, Medium: 2, Low: 1 };
+        const complexityOrder = { Hard: 3, Medium: 2, Low: 1 };
         const aComplexity = complexityOrder[a.complexity as keyof typeof complexityOrder] || 0;
         const bComplexity = complexityOrder[b.complexity as keyof typeof complexityOrder] || 0;
         return bComplexity - aComplexity;
@@ -200,7 +200,7 @@ export default function OperationsView({
   const tomorrowAlerts = useMemo(() => {
     const earlyMorning = tomorrowOrders.filter((o) => {
       const deliveryTime = new Date(o.orderDateTime || new Date());
-      return deliveryTime.getHours() < 10 && o.complexity === 'High';
+      return deliveryTime.getHours() < 10 && o.complexity === 'Hard';
     });
 
     const mustStartToday = tomorrowOrders.filter((o) => {

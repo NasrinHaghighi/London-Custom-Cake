@@ -18,7 +18,7 @@ export type OrderListItem = {
   totalAmount: number;
   totalProductionTimeMinutes?: number;
   // summary prep complexity for the whole order (highest level among items)
-  complexity?: 'Low' | 'Medium' | 'High';
+  complexity?: 'Low' | 'Medium' | 'Hard';
 };
 
 export type OrdersResponse = {

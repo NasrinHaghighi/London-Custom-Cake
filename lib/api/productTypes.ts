@@ -5,7 +5,7 @@ export interface ProductType {
   isActive: boolean;
   sortOrder: number;
   pricingMethod: 'perunit' | 'perkg';
-  basePrepTime?: 'Low' | 'Medium' | 'High';
+  basePrepTime?: 'Low' | 'Medium' | 'Hard';
   measurement_type?: 'weight' | 'quantity';
   base_weight?: number;
   base_quantity?: number;
@@ -20,9 +20,11 @@ export interface ProductType {
   unitPrice?: number;
   minQuantity?: number;
   maxQuantity?: number;
+  oversizeQuantityExtraMinutesPerUnit?: number;
   pricePerKg?: number;
   minWeight?: number;
   maxWeight?: number;
+  oversizeWeightExtraMinutes?: number;
   shapeIds?: string[];
 }
 
@@ -31,7 +33,7 @@ export interface ProductTypeInput {
   description: string;
   isActive: boolean;
   pricingMethod: 'perunit' | 'perkg';
-  basePrepTime?: 'Low' | 'Medium' | 'High';
+  basePrepTime?: 'Low' | 'Medium' | 'Hard';
   measurement_type: 'weight' | 'quantity';
   base_weight?: number;
   base_quantity?: number;
@@ -46,9 +48,11 @@ export interface ProductTypeInput {
   unitPrice?: number;
   minQuantity?: number;
   maxQuantity?: number;
+  oversizeQuantityExtraMinutesPerUnit?: number;
   pricePerKg?: number;
   minWeight?: number;
   maxWeight?: number;
+  oversizeWeightExtraMinutes?: number;
   shapeIds?: string[];
 }
 

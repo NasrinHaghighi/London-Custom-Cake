@@ -44,8 +44,9 @@ export async function POST(request: NextRequest) {
     if (normalizedData.measurement_type === 'quantity') {
       const syncedQuantity = normalizedData.minQuantity ?? normalizedData.base_quantity;
       if (syncedQuantity !== undefined) {
-        normalizedData.base_quantity = syncedQuantity;
-        normalizedData.minQuantity = syncedQuantity;
+        const normalizedQuantity = Math.max(1, Math.floor(syncedQuantity));
+        normalizedData.base_quantity = normalizedQuantity;
+        normalizedData.minQuantity = normalizedQuantity;
       }
       normalizedData.base_weight = undefined;
     }
@@ -53,8 +54,9 @@ export async function POST(request: NextRequest) {
     if (normalizedData.measurement_type === 'weight') {
       const syncedWeight = normalizedData.minWeight ?? normalizedData.base_weight;
       if (syncedWeight !== undefined) {
-        normalizedData.base_weight = syncedWeight;
-        normalizedData.minWeight = syncedWeight;
+        const normalizedWeight = syncedWeight > 0 ? syncedWeight : 1;
+        normalizedData.base_weight = normalizedWeight;
+        normalizedData.minWeight = normalizedWeight;
       }
       normalizedData.base_quantity = undefined;
     }

@@ -6,6 +6,7 @@ import { calculateProductionTime } from '@/lib/models/productTypeSchema';
 import { estimateOrderProductionTimeSchema } from '@/lib/validators/order';
 import logger from '@/lib/logger';
 import { z } from 'zod';
+import { calculateItemProductionTimeWithModifiers } from '@/lib/services/orderTimeModifiers';
 
 function formatMinutesLabel(totalMinutes: number): string {
   const rounded = Math.max(0, Math.round(totalMinutes));
@@ -58,11 +59,31 @@ export async function POST(request: NextRequest) {
         order_quantity: item.quantity,
       });
 
+      const withModifiers = calculateItemProductionTimeWithModifiers(minutes, {
+        decorationComplexity: item.decorationComplexity,
+        customDecorations: item.customDecorations,
+        textType: item.textType,
+        customTextMessage: item.customTextMessage,
+        pricingMethod: product.pricingMethod,
+        baseWeight: product.base_weight ?? product.minWeight,
+        orderWeight: item.weight,
+        baseQuantity: product.base_quantity ?? product.minQuantity,
+        orderQuantity: item.quantity,
+        oversizeWeightExtraMinutes: product.oversizeWeightExtraMinutes,
+        oversizeQuantityExtraMinutesPerUnit: product.oversizeQuantityExtraMinutesPerUnit,
+      });
+
       return {
         itemIndex: index,
         productTypeId: item.productTypeId,
         productTypeName: product.name,
-        minutes,
+        minutes: withModifiers.totalProductionMinutes,
+        baseMinutes: withModifiers.baseProductionMinutes,
+        decorationComplexity: withModifiers.decorationComplexity,
+        decorationExtraMinutes: withModifiers.decorationExtraMinutes,
+        textType: withModifiers.textType,
+        textExtraMinutes: withModifiers.textExtraMinutes,
+        oversizeExtraMinutes: withModifiers.oversizeExtraMinutes,
       };
     });
 

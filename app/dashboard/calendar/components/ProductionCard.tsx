@@ -462,7 +462,7 @@ export function ProductionCard({ order, onStatusChange, compact = false }: Produ
         {order.complexity && (
           <span
             className={`${compact ? 'px-1.5 text-[11px]' : 'px-2 text-xs'} py-0.5 rounded font-semibold ${
-              order.complexity === 'High'
+              order.complexity === 'Hard'
                 ? 'bg-red-200 text-red-900'
                 : order.complexity === 'Medium'
                   ? 'bg-amber-200 text-amber-900'

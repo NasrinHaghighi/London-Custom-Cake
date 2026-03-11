@@ -36,7 +36,7 @@ export function useCreateProductType(onSuccessCallback?: () => void) {
       description: string;
       isActive: boolean;
       pricingMethod: 'perunit' | 'perkg';
-      basePrepTime?: 'Low' | 'Medium' | 'High';
+      basePrepTime?: 'Low' | 'Medium' | 'Hard';
       measurement_type: 'weight' | 'quantity';
       base_weight?: number;
       base_quantity?: number;
@@ -51,9 +51,11 @@ export function useCreateProductType(onSuccessCallback?: () => void) {
       unitPrice?: number;
       minQuantity?: number;
       maxQuantity?: number;
+      oversizeQuantityExtraMinutesPerUnit?: number;
       pricePerKg?: number;
       minWeight?: number;
       maxWeight?: number;
+      oversizeWeightExtraMinutes?: number;
       shapeIds?: string[];
     }) => {
       // Ensure shapeIds is always sent, even if empty
@@ -87,7 +89,7 @@ export function useUpdateProductType(onSuccessCallback?: () => void) {
       description: string;
       isActive: boolean;
       pricingMethod: 'perunit' | 'perkg';
-      basePrepTime?: 'Low' | 'Medium' | 'High';
+      basePrepTime?: 'Low' | 'Medium' | 'Hard';
       measurement_type: 'weight' | 'quantity';
       base_weight?: number;
       base_quantity?: number;
@@ -102,9 +104,11 @@ export function useUpdateProductType(onSuccessCallback?: () => void) {
       unitPrice?: number;
       minQuantity?: number;
       maxQuantity?: number;
+      oversizeQuantityExtraMinutesPerUnit?: number;
       pricePerKg?: number;
       minWeight?: number;
       maxWeight?: number;
+      oversizeWeightExtraMinutes?: number;
       shapeIds?: string[];
     }) => {
       const { id, shapeIds, ...rest } = formData;
@@ -116,8 +120,9 @@ export function useUpdateProductType(onSuccessCallback?: () => void) {
       queryClient.invalidateQueries({ queryKey: ['productTypes'] });
       onSuccessCallback?.();
     },
-    onError: () => {
-      toast.error('Failed to update product type');
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Failed to update product type';
+      toast.error(message);
     },
   });
 }

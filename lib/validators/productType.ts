@@ -25,7 +25,7 @@ export const createProductTypeSchema = z.object({
 
   minQuantity: z.number()
     .int('Min quantity must be a whole number')
-    .nonnegative('Min quantity cannot be negative')
+    .min(1, 'Min quantity must be at least 1')
     .optional(),
 
   maxQuantity: z.number()
@@ -33,24 +33,32 @@ export const createProductTypeSchema = z.object({
     .positive('Max quantity must be positive')
     .optional(),
 
+  oversizeQuantityExtraMinutesPerUnit: z.number()
+    .nonnegative('Oversize quantity extra minutes per unit cannot be negative')
+    .default(30),
+
   // Fields for 'perkg' pricing
   pricePerKg: z.number()
     .positive('Price per kg must be positive')
     .optional(),
 
   minWeight: z.number()
-    .nonnegative('Min weight cannot be negative')
+    .positive('Min weight must be greater than 0')
     .optional(),
 
   maxWeight: z.number()
     .positive('Max weight must be positive')
     .optional(),
 
+  oversizeWeightExtraMinutes: z.number()
+    .nonnegative('Oversize weight extra minutes cannot be negative')
+    .default(60),
+
   // Cake shapes (array of shape IDs)
   shapeIds: z.array(z.string()).default([]),
 
   // Prep time complexity enum
-  basePrepTime: z.enum(['Low', 'Medium', 'High']).default('Medium'),
+  basePrepTime: z.enum(['Low', 'Medium', 'Hard']).default('Medium'),
 
   // Production-time configuration
   measurement_type: z.enum(['weight', 'quantity']).default('quantity'),

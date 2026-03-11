@@ -95,7 +95,7 @@ export function SmartHeader({ currentTime, todayStats, tomorrowAlerts }: SmartHe
         <div className="mt-3 space-y-2">
           {tomorrowAlerts.earlyMorning.length > 0 && (
             <div className="bg-amber-500/20 border border-amber-300 rounded px-3 py-2 text-sm">
-              <span className="font-semibold">{tomorrowAlerts.earlyMorning.length}</span> high-complexity early
+              <span className="font-semibold">{tomorrowAlerts.earlyMorning.length}</span> hard-complexity early
               morning orders tomorrow
             </div>
           )}
