@@ -21,36 +21,19 @@ type ProductionTimeInput = {
   order_quantity?: number;
 };
 
-const getStageMinutes = (baseMinutes: number, shouldScale: boolean, factor: number) => {
+const getStageMinutes = (baseMinutes: number) => {
   if (baseMinutes <= 0) {
     return 0;
   }
 
-  return baseMinutes * (shouldScale ? factor : 1);
+  return baseMinutes;
 };
 
-export function calculateProductionTime(config: ProductionTimeConfig, input: ProductionTimeInput = {}) {
-  const measurementType = config.measurement_type || 'quantity';
-
-  let factor = 1;
-  if (measurementType === 'weight') {
-    const baseWeight = config.base_weight || 0;
-    const orderWeight = input.order_weight || 0;
-    if (baseWeight > 0 && orderWeight > 0) {
-      factor = orderWeight / baseWeight;
-    }
-  } else {
-    const baseQuantity = config.base_quantity || 0;
-    const orderQuantity = input.order_quantity || 0;
-    if (baseQuantity > 0 && orderQuantity > 0) {
-      factor = orderQuantity / baseQuantity;
-    }
-  }
-
-  const bake = getStageMinutes(config.bake_time_minutes || 0, config.scale_bake ?? true, factor);
-  const fill = getStageMinutes(config.fill_time_minutes || 0, config.scale_fill ?? true, factor);
-  const decoration = getStageMinutes(config.decoration_time_minutes || 0, config.scale_decoration ?? true, factor);
-  const rest = getStageMinutes(config.rest_time_minutes || 0, config.scale_rest ?? false, factor);
+export function calculateProductionTime(config: ProductionTimeConfig, _input: ProductionTimeInput = {}) {
+  const bake = getStageMinutes(config.bake_time_minutes || 0);
+  const fill = getStageMinutes(config.fill_time_minutes || 0);
+  const decoration = getStageMinutes(config.decoration_time_minutes || 0);
+  const rest = getStageMinutes(config.rest_time_minutes || 0);
 
   return Math.ceil(bake + fill + decoration + rest);
 }
@@ -149,15 +132,15 @@ const ProductTypeSchema = new Schema(
     },
     scale_bake: {
       type: Boolean,
-      default: true,
+      default: false,
     },
     scale_fill: {
       type: Boolean,
-      default: true,
+      default: false,
     },
     scale_decoration: {
       type: Boolean,
-      default: true,
+      default: false,
     },
     scale_rest: {
       type: Boolean,

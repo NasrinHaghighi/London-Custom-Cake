@@ -36,7 +36,6 @@ export default function ProductTypeEditModal({
   const isShapeCheckboxDisabled = !hasShapes;
   const effectivePricingMethod = form.pricingMethod === 'perkg' ? 'perkg' : 'perunit';
   const derivedMeasurementType = effectivePricingMethod === 'perkg' ? 'weight' : 'quantity';
-  const scaleLabel = derivedMeasurementType === 'weight' ? 'Scale with weight' : 'Scale with quantity';
 
   const toOptionalFloat = (value: string) => {
     if (!value.trim()) return undefined;
@@ -335,8 +334,8 @@ export default function ProductTypeEditModal({
 
             <p className="text-xs text-gray-600">
               {derivedMeasurementType === 'weight'
-                ? 'Times below are defined for the minimum weight (Base Weight). Scalable stages will adjust for order weight.'
-                : 'Times below are defined for the minimum quantity (Base Quantity). Scalable stages will adjust for order quantity.'}
+                ? 'Times below are fixed base-stage minutes for the base weight. Additional oversize minutes are handled by the oversize rule.'
+                : 'Times below are fixed base-stage minutes for the base quantity. Additional oversize minutes are handled by the oversize rule.'}
             </p>
           </div>
 
@@ -369,96 +368,52 @@ export default function ProductTypeEditModal({
               <p className="text-[11px] text-gray-500 mt-1">Current complexity range is highlighted.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Bake Time</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.bake_time_minutes}
-                  onChange={(e) => setForm({ ...form, bake_time_minutes: toNonNegativeInt(e.target.value) })}
-                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
-                />
-              </div>
-              <label className="flex items-center gap-2 text-sm text-gray-700 md:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={form.scale_bake}
-                  onChange={(e) => setForm({ ...form, scale_bake: e.target.checked })}
-                  className="w-4 h-4 rounded accent-black focus:ring-black"
-                />
-                {scaleLabel}
-              </label>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Bake Time</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.bake_time_minutes}
+                onChange={(e) => setForm({ ...form, bake_time_minutes: toNonNegativeInt(e.target.value) })}
+                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
+              />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Fill Time</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.fill_time_minutes}
-                  onChange={(e) => setForm({ ...form, fill_time_minutes: toNonNegativeInt(e.target.value) })}
-                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
-                />
-              </div>
-              <label className="flex items-center gap-2 text-sm text-gray-700 md:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={form.scale_fill}
-                  onChange={(e) => setForm({ ...form, scale_fill: e.target.checked })}
-                  className="w-4 h-4 rounded accent-black focus:ring-black"
-                />
-                {scaleLabel}
-              </label>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Fill Time</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.fill_time_minutes}
+                onChange={(e) => setForm({ ...form, fill_time_minutes: toNonNegativeInt(e.target.value) })}
+                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
+              />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Decoration Time</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.decoration_time_minutes}
-                  onChange={(e) => setForm({ ...form, decoration_time_minutes: toNonNegativeInt(e.target.value) })}
-                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
-                />
-              </div>
-              <label className="flex items-center gap-2 text-sm text-gray-700 md:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={form.scale_decoration}
-                  onChange={(e) => setForm({ ...form, scale_decoration: e.target.checked })}
-                  className="w-4 h-4 rounded accent-black focus:ring-black"
-                />
-                {scaleLabel}
-              </label>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Decoration Time</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.decoration_time_minutes}
+                onChange={(e) => setForm({ ...form, decoration_time_minutes: toNonNegativeInt(e.target.value) })}
+                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
+              />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Rest Time</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.rest_time_minutes}
-                  onChange={(e) => setForm({ ...form, rest_time_minutes: toNonNegativeInt(e.target.value), scale_rest: false })}
-                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
-                />
-              </div>
-              <label className="flex items-center gap-2 text-sm text-gray-400 md:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={false}
-                  disabled
-                  className="w-4 h-4 rounded accent-black focus:ring-black"
-                />
-                Constant stage (not scaled)
-              </label>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Rest Time</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.rest_time_minutes}
+                onChange={(e) => setForm({ ...form, rest_time_minutes: toNonNegativeInt(e.target.value) })}
+                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-admin-primary focus:outline-none"
+              />
             </div>
           </div>
 

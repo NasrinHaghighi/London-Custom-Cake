@@ -85,9 +85,9 @@ export const createProductTypeSchema = z.object({
     .int('Rest time must be a whole number')
     .nonnegative('Rest time cannot be negative')
     .default(0),
-  scale_bake: z.boolean().default(true),
-  scale_fill: z.boolean().default(true),
-  scale_decoration: z.boolean().default(true),
+  scale_bake: z.boolean().default(false),
+  scale_fill: z.boolean().default(false),
+  scale_decoration: z.boolean().default(false),
   scale_rest: z.boolean().default(false),
 })
 .refine(
