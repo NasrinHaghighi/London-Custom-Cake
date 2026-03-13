@@ -4,7 +4,10 @@ import Admin from "@/lib/models/admin";
 import ActivityLog from "@/lib/models/activitylog";
 import { authenticateRequest } from "@/lib/auth";
 
-export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   await dbConnect();
   const { id } = await context.params;
   console.log("Deleting admin with id:", id);
