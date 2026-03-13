@@ -685,8 +685,10 @@ export default function OrderItemsTab({
     ? formatHoursLabel(productionEstimate.totalMinutes)
     : '';
 
+  type ProductionEstimateItem = NonNullable<typeof productionEstimate>['itemEstimates'][number];
+
   const productionEstimateByIndex = useMemo(() => {
-    const estimateMap = new Map<number, (typeof productionEstimate.itemEstimates)[number]>();
+    const estimateMap = new Map<number, ProductionEstimateItem>();
     (productionEstimate?.itemEstimates || []).forEach((estimate) => {
       estimateMap.set(estimate.itemIndex, estimate);
     });
