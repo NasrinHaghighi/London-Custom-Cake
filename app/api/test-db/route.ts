@@ -1,14 +1,15 @@
-// import { NextResponse } from 'next/server';
-// import dbConnect from '../../../lib/mongodb';
+import { NextResponse } from 'next/server';
+import dbConnect from '@/lib/mongodb';
 
-// export async function GET() {
-//   try {
-//     console.log('Attempting to connect to MongoDB...');
-//     await dbConnect();
-//     console.log('MongoDB connected successfully');
-//     return NextResponse.json({ success: true, message: 'MongoDB connected successfully' });
-//   } catch (error) {
-//     console.error('MongoDB connection error:', error);
-//     return NextResponse.json({ success: false, message: 'MongoDB connection failed', error: error.message }, { status: 500 });
-//   }
-// }
+export async function GET() {
+	try {
+		await dbConnect();
+		return NextResponse.json({ success: true, message: 'MongoDB connected successfully' });
+	} catch (error: unknown) {
+		const message = error instanceof Error ? error.message : 'Unknown error';
+		return NextResponse.json(
+			{ success: false, message: 'MongoDB connection failed', error: message },
+			{ status: 500 }
+		);
+	}
+}
