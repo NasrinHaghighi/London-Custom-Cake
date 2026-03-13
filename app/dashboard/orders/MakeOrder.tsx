@@ -98,10 +98,11 @@ export default function MakeOrder() {
     orderNumber: string;
     totalAmount: number;
     paymentStatus: 'unpaid' | 'partial' | 'paid';
-    orderDateTime: string;
+    orderDateTime?: string;
   }) => {
     setCreatedOrder({
       ...order,
+      orderDateTime: order.orderDateTime || new Date().toISOString(),
       paidAmount: 0,
     });
     setIsOrderCreated(true);
