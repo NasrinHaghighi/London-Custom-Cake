@@ -116,6 +116,7 @@ export default function OrdersWorkspaceTable({ orders, isLoading, onManagePaymen
                               _id: order._id,
                               orderNumber: order.orderNumber,
                               totalAmount: order.totalAmount,
+                              orderDateTime: order.orderDateTime,
                             });
                           }}
                           className="text-blue-600 hover:text-blue-700 font-medium"
